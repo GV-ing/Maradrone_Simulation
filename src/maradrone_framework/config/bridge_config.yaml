@@ -1,0 +1,10 @@
+# Bridge tra ROS 2 e PX4 via Micro-XRCE-DDS
+# Questi topic devono corrispondere a quelli sottoscritti dal tuo nodo di controllo
+- topic: /fmu/in/offboard_control_mode
+  type: px4_msgs/msg/OffboardControlMode
+- topic: /fmu/in/trajectory_setpoint
+  type: px4_msgs/msg/TrajectorySetpoint
+- topic: /fmu/out/vehicle_status
+  type: px4_msgs/msg/VehicleStatus
+- topic: /fmu/in/vehicle_command
+  type: px4_msgs/msg/VehicleCommand

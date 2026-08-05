@@ -1,0 +1,23 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro" name="maradrone">
+
+    <xacro:arg name="package_path" default="$(find maradrone_description)"/>
+    <xacro:property name="pkg_path" value="$(arg package_path)"/>
+
+    <link name="base_link">
+        <visual>
+            <origin xyz="0 0 0" rpy="0 0 0"/>
+            <geometry>
+                <mesh filename="file://${pkg_path}/models/x500_base/meshes/NXP-HGD-CF.dae" scale="1 1 1"/>
+            </geometry>
+        </visual>
+    </link>
+
+    <link name="fmu/odometry"/>
+    <joint name="odom_joint" type="fixed">
+        <parent link="base_link"/>
+        <child link="fmu/odometry"/>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+    </joint>
+
+</robot>
