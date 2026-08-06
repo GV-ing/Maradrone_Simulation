@@ -36,7 +36,11 @@ class ReadRPY : public rclcpp::Node
 		rpy_msg.x = rpy(0);
 		rpy_msg.y = rpy(1);
 		rpy_msg.z = rpy(2);
+		// Publish RPY on the topic
 		publisher_->publish(rpy_msg);
+
+		// Also log to the node's stdout/rosout so you see values in the terminal
+		RCLCPP_INFO(this->get_logger(), "RPY: x=%f y=%f z=%f", rpy(0), rpy(1), rpy(2));
 	}
 
 };

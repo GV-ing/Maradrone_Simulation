@@ -1,4 +1,4 @@
-FROM px4io/px4-dev-base-jammy:latest
+FROM docker.io/px4io/px4-dev-base-jammy:latest
 
 ENV DEBIAN_FRONTEND=noninteractive \
     LANG=en_US.UTF-8 \
@@ -62,6 +62,11 @@ RUN apt-get update && apt-get install -y \
     ros-humble-robot-localization \
  && rm -rf /var/lib/apt/lists/*
 
-# Safety Git per PX4-Autopilot
 RUN git config --global --add safe.directory '*'
 
+# Clone di PX4 isolato dal workspace ROS 2 (branch main per compatibilità Gazebo Harmonic)
+WORKDIR /root
+RUN git clone https://github.com/PX4/PX4-Autopilot.git --recursive /root/PX4-Autopilot
+
+# Impostazione della workdir predefinita per l'ingresso nel container
+WORKDIR /root/ros2_ws
