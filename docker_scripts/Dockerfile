@@ -52,21 +52,41 @@ RUN apt-get update && apt-get install -y ros-humble-plotjuggler-ros lsb-release 
       libprotobuf-dev libopencv-dev \
  && rm -rf /var/lib/apt/lists/*
 
-# Installazione ROS Gazebo bridge e Nav2
+# Installazione Nav2, strumenti ROS e RQT (esclusi i pacchetti ros-gz APT)
 RUN apt-get update && apt-get install -y \
-    ros-humble-ros-gz ros-humble-ros-gz-bridge ros-humble-controller-manager \
+    ros-humble-controller-manager \
     ros-humble-ros2-control ros-humble-ros2-controllers ros-humble-ign-ros2-control \
     ros-humble-ign-ros2-control-demos ros-humble-joint-state-publisher-gui \
     ros-humble-xacro ros-humble-usb-cam ros-humble-image-pipeline \
     ros-humble-tf-transformations ros-humble-navigation2 ros-humble-nav2-bringup \
-    ros-humble-robot-localization \
+    ros-humble-robot-localization ros-humble-rqt-image-view \
  && rm -rf /var/lib/apt/lists/*
+
+# ==========================================
+# Compilazione ROS-GZ Bridge per Harmonic
+# ==========================================
+WORKDIR /root/ros2_ws/src
+RUN git clone https://github.com/gazebosim/ros_gz.git -b humble
+
+WORKDIR /root/ros2_ws
+# Eseguiamo la compilazione in un ambiente bash che fa prima il source di ROS 2
+RUN /bin/bash -c "source /opt/ros/humble/setup.bash && \
+    export GZ_VERSION=harmonic && \
+    colcon build --packages-up-to ros_gz_bridge --cmake-args -DGZ_VERSION=harmonic"
+
+# Aggiungiamo il source del workspace compilato al bashrc
+RUN echo "source /root/ros2_ws/install/setup.bash" >> /root/.bashrc
 
 RUN git config --global --add safe.directory '*'
 
-# Clone di PX4 isolato dal workspace ROS 2 (branch main per compatibilità Gazebo Harmonic)
+# Clone di PX4 isolato dal workspace ROS 2
 WORKDIR /root
 RUN git clone https://github.com/PX4/PX4-Autopilot.git --recursive /root/PX4-Autopilot
+
+# --- INIZIO COPIA MAPPA E MODELLI ---
+COPY src/maradrone_description/worlds/leonardo_race_field.sdf /root/PX4-Autopilot/Tools/simulation/gz/worlds/
+COPY src/maradrone_description/models/leo_race_field /root/PX4-Autopilot/Tools/simulation/gz/models/leo_race_field
+# --- FINE COPIA ---
 
 # Impostazione della workdir predefinita per l'ingresso nel container
 WORKDIR /root/ros2_ws
