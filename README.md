@@ -1,139 +1,45 @@
-# MaraDrone Simulation Framework
+# Maradrone Simulation 🚁
 
-## Panoramica del Progetto
+[![ROS 2](https://img.shields.io/badge/ROS_2-Humble-3498db.svg)](https://docs.ros.org/en/humble/)
+[![Gazebo](https://img.shields.io/badge/Gazebo-Harmonic-orange.svg)](https://gazebosim.org/home)
+[![PX4](https://img.shields.io/badge/PX4-Autopilot-blue.svg)](https://px4.io/)
+[![Docker](https://img.shields.io/badge/Docker-Enabled-2496ed.svg)](https://www.docker.com/)
 
-**MaraDrone Simulation** è un framework di simulazione per robotica aerea basato su:
-
-- ROS 2 Humble
-- Gazebo Harmonic
-- PX4 Autopilot (SITL)
-
-Il framework adotta un'architettura containerizzata tramite Docker per garantire la riproducibilità dell'ambiente di sviluppo e ridurre il carico cognitivo estraneo, in linea con i principi pedagogici del framework **Robotics Lab 2026**.
-
-La struttura del repository integra i nodi di controllo e comunicazione custom (come `read_rpy`, `offboard_rl` e `force_land`) all'interno del workspace ROS 2, interfacciandosi con il firmware **PX4-Autopilot** e la libreria di messaggi `px4_msgs`.
+A fully Dockerized simulation environment for **Maradrone**, based on the PX4 Autopilot ecosystem, ROS 2 Humble, and Gazebo Harmonic. This repository contains the setup for simulating an `x500_depth` drone inside a custom environment (`leonardo_race_field`), with full support for MAVLink telemetry, QGroundControl (QGC) autonomous missions (like Survey), and real-time video streaming via `ros_gz_bridge` and GStreamer.
 
 ---
 
-# Struttura del Repository
-
-```text
-.
-├── docker_scripts/
-│   ├── Dockerfile
-│   ├── docker_build.sh
-│   ├── docker_run_container.sh
-│   └── ...
-│
-├── PX4-Autopilot/
-│   └── Firmware PX4 utilizzato per la simulazione SITL
-│
-└── ros2_ws/
-    ├── src/
-    │   ├── read_rpy/
-    │   ├── offboard_rl/
-    │   ├── force_land/
-    │   └── px4_msgs/
-    ├── build/
-    ├── install/
-    └── log/
-```
-
-## Pacchetti ROS 2
-
-### `read_rpy`
-
-Nodo per la lettura e la conversione dell'assetto del veicolo in angoli di Eulero mediante la libreria geometrica **Eigen**.
-
-### `offboard_rl`
-
-Nodo responsabile della gestione della modalità **Offboard**, dell'armamento del drone e dell'invio delle traiettorie di volo.
-
-### `force_land`
-
-Nodo di sicurezza che impone un atterraggio forzato quando vengono superate soglie altimetriche critiche.
-
-### `px4_msgs`
-
-Pacchetto contenente le interfacce di messaggistica utilizzate per la comunicazione tra ROS 2 e PX4.
+## 📑 Table of Contents
+- [Features](#-features)
+- [Prerequisites](#-prerequisites)
+- [Installation (Docker)](#-installation-docker)
+- [Usage](#-usage)
+  - [1. Start the Simulation](#1-start-the-simulation)
+  - [2. View the Camera (ROS 2 / RQT)](#2-view-the-camera-ros-2--rqt)
+  - [3. QGroundControl & GStreamer](#3-qgroundcontrol--gstreamer)
+- [Repository Structure](#-repository-structure)
 
 ---
 
-# Guida Operativa
+## ✨ Features
+* **Custom Environment**: Includes the `leonardo_race_field` custom world and 3D models seamlessly injected into the PX4 Gazebo directories.
+* **Camera Streaming (ROS 2)**: Bridges the Gazebo camera topic to a standard `sensor_msgs/Image` topic using a source-compiled `ros_gz_bridge` (Harmonic compatible).
+* **QGroundControl Integration**: Ready-to-use GStreamer plugins to stream the video feed directly to QGC and execute autonomous waypoint/survey missions.
+* **Fully Dockerized**: No need to pollute your local machine with ROS 2, Gazebo, or PX4 dependencies. Everything runs inside an isolated, reproducible container.
 
-## 1. Avvio dell'ambiente Docker
+---
 
-Posizionarsi nella cartella contenente gli script Docker ed eseguire:
+## 🛠 Prerequisites
+You only need to have the following installed on your host machine:
+* [Docker](https://docs.docker.com/engine/install/) (Ensure your user is added to the `docker` group)
+* [QGroundControl](https://docs.qgroundcontrol.com/master/en/getting_started/download_and_install.html) (AppImage or Flatpak)
+
+---
+
+## 📥 Installation (Docker)
+
+Clone the repository to your local machine:
 
 ```bash
-cd docker_scripts
-./docker_run_container.sh
-```
-
-### Nota
-
-Lo script verifica automaticamente lo stato del container:
-
-- se il container è spento viene eseguito `docker start`;
-- se non esiste viene creato automaticamente tramite `docker run`;
-- se è già in esecuzione viene aperta una nuova sessione mediante `docker exec`.
-
----
-
-## 2. Avvio di PX4 Autopilot e Gazebo
-
-Una volta entrati nel container Docker (directory iniziale `/root/ros2_ws`), spostarsi nella directory di PX4 ed avviare la simulazione SITL con il modello **gz_x500**:
-
-```bash
-cd /root/ros2_ws/PX4-Autopilot
-make px4_sitl gz_x500
-```
-
----
-
-## 3. Avvio di QGroundControl
-
-Per motivi di compatibilità con le librerie grafiche e crittografiche (GLIBC e SSL), **QGroundControl** deve essere eseguito direttamente sul sistema Host (fuori dal container Docker).
-
-Nel caso di installazione tramite Flatpak:
-
-```bash
-flatpak run org.mavlink.qgroundcontrol
-```
-
-Grazie alla configurazione della rete Docker in modalità **host** (`--network host`), QGroundControl si connetterà automaticamente al flusso MAVLink prodotto dalla simulazione PX4.
-
----
-
-# Sviluppo ROS 2
-
-Per compilare i pacchetti personalizzati del workspace:
-
-```bash
-cd /root/ros2_ws
-
-colcon build --packages-select \
-    read_rpy \
-    offboard_rl \
-    force_land
-
-source install/setup.bash
-```
-
----
-
-# Tecnologie Utilizzate
-
-- ROS 2 Humble
-- Gazebo Harmonic
-- PX4 Autopilot (SITL)
-- Docker
-- QGroundControl
-- Eigen
-- MAVLink
-- `px4_msgs`
-
----
-
-# Obiettivo del Framework
-
-Il framework **MaraDrone Simulation** fornisce un ambiente di sviluppo riproducibile per applicazioni di robotica aerea, consentendo lo sviluppo, il test e la validazione di algoritmi di controllo, navigazione e apprendimento in simulazione prima del deployment su piattaforme reali.
+git clone [https://github.com/GV-ing/Maradrone_Simulation.git](https://github.com/GV-ing/Maradrone_Simulation.git)
+cd Maradrone_Simulation

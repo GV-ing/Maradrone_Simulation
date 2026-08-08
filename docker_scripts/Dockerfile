@@ -52,7 +52,7 @@ RUN apt-get update && apt-get install -y ros-humble-plotjuggler-ros lsb-release 
       libprotobuf-dev libopencv-dev \
  && rm -rf /var/lib/apt/lists/*
 
-# Installazione Nav2, strumenti ROS e RQT (esclusi i pacchetti ros-gz APT)
+# Installazione Nav2, strumenti ROS, RQT e GStreamer per QGC
 RUN apt-get update && apt-get install -y \
     ros-humble-controller-manager \
     ros-humble-ros2-control ros-humble-ros2-controllers ros-humble-ign-ros2-control \
@@ -60,8 +60,8 @@ RUN apt-get update && apt-get install -y \
     ros-humble-xacro ros-humble-usb-cam ros-humble-image-pipeline \
     ros-humble-tf-transformations ros-humble-navigation2 ros-humble-nav2-bringup \
     ros-humble-robot-localization ros-humble-rqt-image-view \
+    libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-bad gstreamer1.0-plugins-good \
  && rm -rf /var/lib/apt/lists/*
-
 # ==========================================
 # Compilazione ROS-GZ Bridge per Harmonic
 # ==========================================
@@ -70,10 +70,11 @@ RUN git clone https://github.com/gazebosim/ros_gz.git -b humble
 
 WORKDIR /root/ros2_ws
 # Eseguiamo la compilazione in un ambiente bash che fa prima il source di ROS 2
+# Eseguiamo la compilazione in un ambiente bash (sequenziale per risparmiare RAM)
 RUN /bin/bash -c "source /opt/ros/humble/setup.bash && \
     export GZ_VERSION=harmonic && \
-    colcon build --packages-up-to ros_gz_bridge --cmake-args -DGZ_VERSION=harmonic"
-
+    colcon build --packages-up-to ros_gz_bridge --cmake-args -DGZ_VERSION=harmonic --executor sequential"
+    
 # Aggiungiamo il source del workspace compilato al bashrc
 RUN echo "source /root/ros2_ws/install/setup.bash" >> /root/.bashrc
 
