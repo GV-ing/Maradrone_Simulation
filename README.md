@@ -353,6 +353,3 @@ The main data flow of the simulation is:
 
 ---
 
-## 📄 License
-
-Add the appropriate project license here.
