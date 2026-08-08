@@ -1,21 +1,40 @@
 # Maradrone Simulation 🚁
 
-[![ROS 2](https://img.shields.io/badge/ROS_2-Humble-3498db.svg)](https://docs.ros.org/en/humble/)
-[![Gazebo](https://img.shields.io/badge/Gazebo-Harmonic-orange.svg)](https://gazebosim.org/home)
-[![PX4](https://img.shields.io/badge/PX4-Autopilot-blue.svg)](https://px4.io/)
-[![Docker](https://img.shields.io/badge/Docker-Enabled-2496ed.svg)](https://www.docker.com/)
+[\![ROS 2](https://img.shields.io/badge/ROS_2-Humble-3498db.svg)](https://docs.ros.org/en/humble/)
+[\![Gazebo](https://img.shields.io/badge/Gazebo-Harmonic-orange.svg)](https://gazebosim.org/home)
+[\![PX4](https://img.shields.io/badge/PX4-Autopilot-blue.svg)](https://px4.io/)
+[\![Docker](https://img.shields.io/badge/Docker-Enabled-2496ed.svg)](https://www.docker.com/)
 
-A fully Dockerized simulation environment for **Maradrone**, based on the PX4 Autopilot ecosystem, ROS 2 Humble, and Gazebo Harmonic.
+Una simulazione Dockerizzata di **Maradrone** che unisce:
 
-This repository contains the setup for simulating an `x500_depth` drone inside a custom environment (`leonardo_race_field`), with full support for:
+* PX4 Autopilot SITL
+* ROS 2 Humble
+* Gazebo Harmonic
+* QGroundControl
+* una mappa custom `leonardo_race_field`
 
-* MAVLink telemetry
-* QGroundControl (QGC)
-* Autonomous missions such as Survey
-* Real-time video streaming
-* ROS 2 image processing
-* Gazebo-to-ROS communication through `ros_gz_bridge`
-* GStreamer video streaming
+---
+
+## 📌 Perché questa repo è diversa
+
+Questa repository differisce strutturalmente rispetto le altre due definite per il framework didattico `Armando-Simulation` o `Fra2mo-Simulation`.
+
+### Differenze chiave
+
+* `Armando-Simulation` e `Fra2mo-Simulation` si basano interamente su ROS 2 e condividono un'architettura simile.
+* Questa repository invece integra un'installazione completa di PX4 Autopilot in modalità SITL.
+* Nel `Dockerfile`:
+  * viene clonato `PX4-Autopilot` in `/root/PX4-Autopilot`
+  * la cartella PX4 è esterna al workspace ROS 2
+  * la mappa custom `leonardo_race_field` viene copiata direttamente nei sorgenti PX4
+  * i modelli custom vengono copiati dentro `/root/PX4-Autopilot/Tools/simulation/gz/models/`
+* La struttura architetturale e le metodologie di questa repo sono quindi diverse rispetto ai due progetti ROS 2 puri.
+
+### Comportamento del container
+
+* Il container non è avviato con `--rm`.
+* Quando si esce dalla shell, il container viene fermato ma non cancellato.
+* Questo permette di non perdere le modifiche fatte dentro il container, fondamentale se si modifica il codice PX4 o si salva una nuova configurazione.
 
 ---
 
@@ -23,333 +42,260 @@ This repository contains the setup for simulating an `x500_depth` drone inside a
 
 * [Features](#-features)
 * [Prerequisites](#-prerequisites)
-* [Installation](#-installation-docker)
+* [Installation](#-installation)
 * [Usage](#-usage)
-
-  * [1. Start the Simulation](#1-start-the-simulation)
-  * [2. View the Camera](#2-view-the-camera-ros-2--rqt)
-  * [3. QGroundControl and GStreamer](#3-qgroundcontrol--gstreamer)
-* [Repository Structure](#-repository-structure)
+  * [Build e avvio del Docker](#build-e-avvio-del-docker)
+  * [Avvio di PX4 e caricamento della mappa custom](#avvio-di-px4-e-caricamento-della-mappa-custom)
+  * [Download e avvio di QGroundControl da un terminale esterno](#download-e-avvio-di-qgroundcontrol-da-un-terminale-esterno)
+  * [Avvio dei bridge tra Gazebo e ROS 2](#avvio-dei-bridge-tra-gazebo-e-ros-2)
+  * [Avvio del microagent e funzione](#avvio-del-microagent-e-funzione)
+  * [Avvio dei nodi custom e dipendenze](#avvio-dei-nodi-custom-e-dipendenze)
+* [Structure & PX4 communication](#structure--px4-communication)
+* [Repository Structure](#repository-structure)
 
 ---
 
 ## ✨ Features
 
-### 🌍 Custom Environment
-
-Includes the `leonardo_race_field` custom Gazebo world and its 3D models, automatically integrated into the PX4 Gazebo environment.
-
-### 📷 Camera Streaming
-
-The `x500_depth` drone is equipped with an IMX214 camera.
-
-The Gazebo camera topic can be bridged to ROS 2 using a source-compiled `ros_gz_bridge`, providing a standard:
-
-```text
-sensor_msgs/msg/Image
-```
-
-topic for use with ROS 2, OpenCV, computer vision nodes, and `rqt_image_view`.
-
-### 🎮 QGroundControl Integration
-
-The simulation supports QGroundControl for:
-
-* MAVLink telemetry
-* Drone control
-* Waypoint missions
-* Survey missions
-* Live video streaming
-
-### 🎥 GStreamer Video Streaming
-
-The camera stream can be forwarded to QGroundControl using GStreamer over UDP.
-
-### 🐳 Fully Dockerized
-
-The complete simulation environment runs inside Docker.
-
-There is no need to install ROS 2, Gazebo, PX4, or their dependencies directly on the host machine.
+* PX4 Autopilot SITL con drone `x500_depth`
+* Mondo custom `leonardo_race_field`
+* Interfaccia ROS 2 `px4_msgs`
+* `ros_gz_bridge` compilato per Gazebo Harmonic
+* Camera IMX214 bridged in ROS 2
+* GStreamer e streaming UDP per QGroundControl
+* Ambiente completamente Dockerizzato
 
 ---
 
 ## 🛠 Prerequisites
 
-Only the following software is required on the host machine:
-
-* [Docker](https://docs.docker.com/engine/install/)
-* [QGroundControl](https://docs.qgroundcontrol.com/master/en/getting_started/download_and_install.html)
-
-Make sure your user has permission to run Docker without `sudo`.
-
-For example:
+* Docker installato sull'host
+* QGroundControl installato sull'host
+* Permessi Docker senza `sudo` (consigliato)
 
 ```bash
 sudo usermod -aG docker $USER
 ```
 
-After adding the user to the Docker group, log out and log back in for the change to take effect.
+Dopo aver aggiunto l'utente al gruppo Docker, esci e rientra nella sessione.
 
 ---
 
-## 📥 Installation (Docker)
+## 📥 Installation
 
-### 1. Clone the repository
-
-Clone the repository to your local machine:
+### Build e avvio del Docker
 
 ```bash
-git clone https://github.com/GV-ing/Maradrone_Simulation.git
-cd Maradrone_Simulation
-```
-
-### 2. Build the Docker image
-
-Run the provided Docker build script:
-
-```bash
+cd /path/to/Maradrone_Simulation
 ./docker_scripts/docker_build_image.sh
-```
-
-The build process will:
-
-1. Pull the required PX4 environment.
-2. Install ROS 2 Humble.
-3. Install Gazebo Harmonic.
-4. Compile `ros_gz_bridge` from source.
-5. Copy the custom models and worlds.
-6. Configure the environment for the Maradrone simulation.
-
-> **Note:** The first build may take several minutes because `ros_gz_bridge` is compiled from source for Gazebo Harmonic compatibility.
-
----
-
-# 🚀 Usage
-
-The complete setup uses three terminals.
-
----
-
-## 1. Start the Simulation
-
-Open the **first terminal**.
-
-Navigate to the repository:
-
-```bash
-cd ~/Maradrone_Simulation
-```
-
-Start the Docker container:
-
-```bash
 ./docker_scripts/docker_run_container.sh
 ```
 
-Once inside the container, navigate to PX4:
+Il primo comando costruisce l'immagine Docker e prepara:
+
+* ROS 2 Humble
+* Gazebo Harmonic
+* `ros_gz_bridge`
+* Micro-XRCE-DDS-Agent
+* la copia di `PX4-Autopilot`
+* il mondo e i modelli custom dentro PX4
+
+### Quando il container esiste già
+
+Se il container esiste ma è spento si puo usare il comando di run che in questa configurazione permette anche di entrare in un container già in esecuzuzione:
 
 ```bash
-cd ~/PX4-Autopilot
+./docker_scripts/docker_run_container.sh
+
 ```
 
-Start the PX4 SITL simulation using the custom world and `x500_depth` drone:
+---
+
+## 🚀 Avvio di PX4 e caricamento della mappa custom
+
+Una volta dentro il container:
 
 ```bash
+cd /root/PX4-Autopilot
 PX4_GZ_WORLD=leonardo_race_field make px4_sitl gz_x500_depth
 ```
 
-Gazebo should now start with the `leonardo_race_field` environment and the `x500_depth` drone.
+Questo comando avvia:
+
+* PX4 SITL
+* Gazebo Harmonic
+* il mondo custom `leonardo_race_field`
+* il modello `x500_depth`
 
 ---
 
-## 2. View the Camera (ROS 2 / RQT)
+## 🛰 Download e avvio di QGroundControl da un terminale esterno
 
-Open a **second terminal**.
+Scarica QGroundControl dal sito ufficiale:
 
-Attach to the running Docker container:
+https://docs.qgroundcontrol.com/master/en/getting_started/download_and_install.html
 
-```bash
-docker exec -it maradrone_container bash
-```
-
-Start the Gazebo-to-ROS 2 bridge for the IMX214 camera:
+Se usi l'AppImage su Linux:
 
 ```bash
-ros2 run ros_gz_bridge parameter_bridge /world/leonardo_race_field/model/x500_depth_0/link/camera_link/sensor/IMX214/image@sensor_msgs/msg/Image[gz.msgs.Image
+cd ~/Downloads
+chmod +x QGroundControl.AppImage
+./QGroundControl.AppImage
 ```
 
-The Gazebo camera stream is now available through ROS 2.
-
-### Open `rqt_image_view`
-
-Open a **third terminal**:
-
-```bash
-docker exec -it maradrone_container bash
-```
-
-Then run:
-
-```bash
-rqt_image_view
-```
-
-In `rqt_image_view`, select the following topic:
-
-```text
-/world/leonardo_race_field/model/x500_depth_0/link/camera_link/sensor/IMX214/image
-```
-
-You should now see the live camera feed from the simulated drone.
-
----
-
-## 3. QGroundControl & GStreamer
-
-Launch **QGroundControl** on the host machine.
-
-The PX4 simulation should automatically establish a MAVLink connection through UDP port:
+Collegati alla simulazione PX4 su porta MAVLink:
 
 ```text
 14550
 ```
 
-### Configure the video stream
-
-In QGroundControl:
-
-1. Open **Application Settings**.
-2. Select **Video**.
-3. Set **Video Source** to:
-
-   * `UDP h.264 Video Stream`
-   * or `GStreamer`, depending on the QGC version.
-4. Set the UDP port to:
+Per il video UDP in QGC usa la porta:
 
 ```text
 5600
 ```
 
-5. Return to the **Fly** view.
+---
 
-The live camera stream should now be displayed in QGroundControl.
+## 🔌 Avvio dei bridge tra Gazebo e ROS 2
 
-### Autonomous Survey Mission
+Nel container:
 
-Once the drone is connected:
+```bash
+docker exec -it maradrone_container bash
+ros2 run ros_gz_bridge parameter_bridge   /world/leonardo_race_field/model/x500_depth_0/link/camera_link/sensor/IMX214/image@sensor_msgs/msg/Image[gz.msgs.Image
+```
 
-1. Open the **Plan** view.
-2. Create a **Survey** mission.
-3. Define the desired survey area.
-4. Upload the mission to the simulated drone.
-5. Switch to the **Fly** view.
-6. Start the mission.
+Poi avvia `rqt_image_view` e seleziona il topic:
 
-The simulated drone can then execute the autonomous survey while providing live camera telemetry.
+```text
+/world/leonardo_race_field/model/x500_depth_0/link/camera_link/sensor/IMX214/image
+```
 
 ---
 
-# 📁 Repository Structure
+## ⚙️ Avvio del microagent e funzione
+
+Durante la build del container vengono installati i componenti necessari per il bridge PX4/ROS 2:
+
+* `Micro-XRCE-DDS-Agent`
+* `ros_gz_bridge`
+
+Il microagent è il componente che fa da companion tra PX4 e ROS 2:
+
+* PX4 usa `uxrce_dds_client`
+* il container esegue `Micro-XRCE-DDS-Agent`
+* `px4_msgs` rappresenta i messaggi PX4 su ROS 2
+
+In questo progetto, il microagent è già predisposto e non richiede un avvio manuale separato.
+
+---
+
+## 🧩 Avvio dei nodi custom e dipendenze
+
+Nel container, costruisci il workspace ROS 2:
+
+```bash
+cd /root/ros2_ws
+colcon build --packages-select px4_msgs maradrone_framework offboard_rl force_land read_rpy
+source install/setup.bash
+```
+
+### Nodi custom inclusi
+
+* `maradrone_framework`
+  * eseguibile: `offboard_takeoff`
+  * invia:
+    * `/fmu/in/offboard_control_mode`
+    * `/fmu/in/trajectory_setpoint`
+    * `/fmu/in/vehicle_command`
+
+* `offboard_rl`
+  * eseguibile: `go_to_point`
+  * legge:
+    * `/fmu/out/vehicle_local_position`
+    * `/fmu/out/vehicle_attitude`
+  * invia:
+    * `/fmu/in/offboard_control_mode`
+    * `/fmu/in/trajectory_setpoint`
+    * `/fmu/in/vehicle_command`
+
+* `force_land`
+  * eseguibile: `force_land`
+  * invia il comando di atterraggio di emergenza tramite `/fmu/in/vehicle_command`
+
+* `read_rpy`
+  * eseguibile: `read_rpy`
+  * legge l'assetto dal topic `/fmu/out/vehicle_attitude`
+
+### Esempi di esecuzione
+
+```bash
+ros2 run maradrone_framework offboard_takeoff
+ros2 run offboard_rl go_to_point
+ros2 run force_land force_land
+ros2 run read_rpy read_rpy
+```
+
+> Questi nodi richiedono che `px4_msgs` sia compilato e che il bridge PX4/ROS 2 sia attivo.
+
+---
+
+## 📘 Structure & PX4 communication
+
+### Panoramica architetturale
+
+1. `PX4-Autopilot` esegue la simulazione SITL.
+2. Gazebo Harmonic visualizza il drone e il mondo custom.
+3. `ros_gz_bridge` porta i sensori Gazebo su ROS 2.
+4. `px4_msgs` converte i messaggi PX4 uORB in tipi ROS 2.
+5. I nodi ROS 2 pubblicano comandi su `/fmu/in/...`.
+6. PX4 restituisce lo stato su `/fmu/out/...`.
+7. QGroundControl comunica con PX4 via MAVLink su `14550`.
+
+### Messaggi chiave
+
+* `/fmu/in/offboard_control_mode`
+* `/fmu/in/trajectory_setpoint`
+* `/fmu/in/vehicle_command`
+* `/fmu/out/vehicle_local_position`
+* `/fmu/out/vehicle_attitude`
+
+### Differenza rispetto ad un sistema ROS 2 puro
+
+Questa repository non è una semplice simulazione ROS 2: è un sistema ibrido PX4 + ROS 2.
+
+* `px4_msgs` è l'interfaccia che rende i messaggi PX4 disponibili su ROS 2.
+* I nodi custom inviano comandi direttamente a PX4 tramite topic `/fmu/in/...`.
+* Il firmware PX4 rimane il componente di controllo centrale.
+
+---
+
+## 📁 Repository Structure
 
 ```text
 Maradrone_Simulation/
 ├── docker_scripts/
 │   ├── Dockerfile
-│   │   └── Complete environment setup
-│   │
 │   ├── docker_build_image.sh
-│   │   └── Script used to build the Docker image
-│   │
 │   └── docker_run_container.sh
-│       └── Script used to launch the container
-│
 ├── src/
-│   └── maradrone_description/
-│       ├── models/
-│       │   └── leo_race_field/
-│       │       └── 3D meshes, SDF and configuration files
-│       │
-│       └── worlds/
-│           └── leonardo_race_field.sdf
-│               └── Gazebo Harmonic world definition
-│
+│   ├── force_land/
+│   ├── maradrone_description/
+│   │   ├── models/
+│   │   └── worlds/
+│   ├── maradrone_framework/
+│   ├── offboard_rl/
+│   ├── px4_msgs/
+│   └── read_rpy/
 └── README.md
 ```
 
 ---
 
-## 🔧 Main Components
+## 💡 Note finali
 
-| Component         | Version / Technology |
-| ----------------- | -------------------- |
-| ROS 2             | Humble               |
-| Gazebo            | Harmonic             |
-| PX4               | Autopilot / SITL     |
-| Drone             | `x500_depth`         |
-| Camera            | IMX214               |
-| Communication     | MAVLink              |
-| ROS-Gazebo Bridge | `ros_gz_bridge`      |
-| Video             | GStreamer            |
-| Ground Control    | QGroundControl       |
-| Containerization  | Docker               |
-
----
-
-## 🧩 Communication Overview
-
-The main data flow of the simulation is:
-
-```text
-                    ┌──────────────────────┐
-                    │     PX4 SITL        │
-                    │     x500_depth      │
-                    └──────────┬───────────┘
-                               │
-                               ▼
-                    ┌──────────────────────┐
-                    │       Gazebo         │
-                    │ leonardo_race_field  │
-                    └──────────┬───────────┘
-                               │
-                 ┌─────────────┴─────────────┐
-                 │                           │
-                 ▼                           ▼
-        ┌─────────────────┐         ┌─────────────────┐
-        │ ros_gz_bridge   │         │     MAVLink     │
-        └────────┬────────┘         └────────┬────────┘
-                 │                           │
-                 ▼                           ▼
-        ┌─────────────────┐         ┌─────────────────┐
-        │     ROS 2       │         │ QGroundControl  │
-        │ sensor_msgs     │         │      QGC        │
-        └────────┬────────┘         └─────────────────┘
-                 │
-                 ▼
-        ┌─────────────────┐
-        │ rqt_image_view  │
-        │ / OpenCV / CV   │
-        └─────────────────┘
-```
-
----
-
-## 📡 Important Ports
-
-|    Port | Purpose                  |
-| ------: | ------------------------ |
-| `14550` | MAVLink / QGroundControl |
-|  `5600` | UDP H.264 video stream   |
-
----
-
-## 📝 Notes
-
-* The simulation is designed to run inside Docker.
-* ROS 2 Humble and Gazebo Harmonic are configured inside the container.
-* `ros_gz_bridge` is compiled from source to ensure compatibility with Gazebo Harmonic.
-* QGroundControl runs on the host machine.
-* The camera stream can be consumed both by ROS 2 applications and QGroundControl.
-* The custom environment is loaded through the PX4 `PX4_GZ_WORLD` variable.
-
----
-
+* Questa repo utilizza metodologie funzionali diverse rispetto a `Armando-Simulation` e `Fra2mo-Simulation`.
+* Il Dockerfile prepara il codice PX4 e copia la mappa custom all'interno di `/root/PX4-Autopilot`.
+* Il container conserva lo stato tra le uscite, così le modifiche non vanno perse.
+* I pacchetti `maradrone_framework`, `offboard_rl`, `force_land` e `read_rpy` dipendono da `px4_msgs` e dal bridge PX4/ROS 2.
