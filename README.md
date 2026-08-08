@@ -1,141 +1,181 @@
 # Maradrone Simulation 🚁
 
-[\![ROS 2](https://img.shields.io/badge/ROS_2-Humble-3498db.svg)](https://docs.ros.org/en/humble/)
-[\![Gazebo](https://img.shields.io/badge/Gazebo-Harmonic-orange.svg)](https://gazebosim.org/home)
-[\![PX4](https://img.shields.io/badge/PX4-Autopilot-blue.svg)](https://px4.io/)
-[\![Docker](https://img.shields.io/badge/Docker-Enabled-2496ed.svg)](https://www.docker.com/)
+[![ROS 2](https://img.shields.io/badge/ROS_2-Humble-3498db.svg)](https://docs.ros.org/en/humble/)
+[![Gazebo](https://img.shields.io/badge/Gazebo-Harmonic-orange.svg)](https://gazebosim.org/home)
+[![PX4](https://img.shields.io/badge/PX4-Autopilot-blue.svg)](https://px4.io/)
+[![Docker](https://img.shields.io/badge/Docker-Enabled-2496ed.svg)](https://www.docker.com/)
 
-Una simulazione Dockerizzata di **Maradrone** che unisce:
+A fully Dockerized simulation environment for **Maradrone**, integrating:
 
-* PX4 Autopilot SITL
-* ROS 2 Humble
-* Gazebo Harmonic
-* QGroundControl
-* una mappa custom `leonardo_race_field`
-
----
-
-## 📌 Perché questa repo è diversa
-
-Questa repository differisce strutturalmente rispetto le altre due definite per il framework didattico `Armando-Simulation` o `Fra2mo-Simulation`.
-
-### Differenze chiave
-
-* `Armando-Simulation` e `Fra2mo-Simulation` si basano interamente su ROS 2 e condividono un'architettura simile.
-* Questa repository invece integra un'installazione completa di PX4 Autopilot in modalità SITL.
-* Nel `Dockerfile`:
-  * viene clonato `PX4-Autopilot` in `/root/PX4-Autopilot`
-  * la cartella PX4 è esterna al workspace ROS 2
-  * la mappa custom `leonardo_race_field` viene copiata direttamente nei sorgenti PX4
-  * i modelli custom vengono copiati dentro `/root/PX4-Autopilot/Tools/simulation/gz/models/`
-* La struttura architetturale e le metodologie di questa repo sono quindi diverse rispetto ai due progetti ROS 2 puri.
-
-### Comportamento del container
-
-* Il container non è avviato con `--rm`.
-* Quando si esce dalla shell, il container viene fermato ma non cancellato.
-* Questo permette di non perdere le modifiche fatte dentro il container, fondamentale se si modifica il codice PX4 o si salva una nuova configurazione.
+* **PX4 Autopilot SITL**
+* **ROS 2 Humble**
+* **Gazebo Harmonic**
+* **QGroundControl**
+* A custom `leonardo_race_field` simulation world
 
 ---
 
 ## 📑 Table of Contents
 
+* [Overview](#-overview)
+* [Why Is This Repository Different?](#-why-is-this-repository-different)
 * [Features](#-features)
 * [Prerequisites](#-prerequisites)
 * [Installation](#-installation)
 * [Usage](#-usage)
-  * [Build e avvio del Docker](#build-e-avvio-del-docker)
-  * [Avvio di PX4 e caricamento della mappa custom](#avvio-di-px4-e-caricamento-della-mappa-custom)
-  * [Download e avvio di QGroundControl da un terminale esterno](#download-e-avvio-di-qgroundcontrol-da-un-terminale-esterno)
-  * [Avvio dei bridge tra Gazebo e ROS 2](#avvio-dei-bridge-tra-gazebo-e-ros-2)
-  * [Avvio del microagent e funzione](#avvio-del-microagent-e-funzione)
-  * [Avvio dei nodi custom e dipendenze](#avvio-dei-nodi-custom-e-dipendenze)
-* [Structure & PX4 communication](#structure--px4-communication)
-* [Repository Structure](#repository-structure)
+
+  * [Building and Starting the Docker Container](#building-and-starting-the-docker-container)
+  * [Starting PX4 and Loading the Custom World](#starting-px4-and-loading-the-custom-world)
+  * [Downloading and Starting QGroundControl](#downloading-and-starting-qgroundcontrol)
+  * [Starting the Gazebo–ROS 2 Bridge](#starting-the-gazebo-ros-2-bridge)
+  * [Micro-XRCE-DDS-Agent](#micro-xrce-dds-agent)
+  * [Building and Running Custom ROS 2 Nodes](#building-and-running-custom-ros-2-nodes)
+* [Architecture and PX4 Communication](#-architecture-and-px4-communication)
+* [Repository Structure](#-repository-structure)
+* [Final Notes](#-final-notes)
+
+---
+
+## 🔎 Overview
+
+**Maradrone Simulation** provides a Dockerized environment for running a PX4-based drone simulation integrated with ROS 2 and Gazebo.
+
+The project combines the PX4 flight stack with custom ROS 2 nodes, Gazebo sensors, QGroundControl, and a custom simulation environment.
+
+Unlike the other repositories developed for the `Armando-Simulation` and `Fra2mo-Simulation` educational framework, this project uses **PX4 Autopilot SITL as the central flight-control component**.
+
+---
+
+## 📌 Why Is This Repository Different?
+
+This repository has a different architecture compared to the other two repositories defined for the `Armando-Simulation` and `Fra2mo-Simulation` educational framework.
+
+### Key Differences
+
+* `Armando-Simulation` and `Fra2mo-Simulation` are fully based on ROS 2 and share a similar architecture.
+* This repository integrates a complete **PX4 Autopilot SITL installation**.
+* PX4 is maintained outside the ROS 2 workspace.
+* During the Docker image build:
+
+  * `PX4-Autopilot` is cloned into `/root/PX4-Autopilot`.
+  * The PX4 source tree remains external to the ROS 2 workspace.
+  * The custom `leonardo_race_field` world is copied directly into the PX4 sources.
+  * Custom models are copied into `/root/PX4-Autopilot/Tools/simulation/gz/models/`.
+* The overall architecture and development workflow are therefore different from the two pure ROS 2 projects.
+
+### Container Persistence
+
+The container is **not** started with the `--rm` option.
+
+When the shell is exited, the container is stopped but **not removed**. This makes it possible to preserve changes made inside the container, which is particularly useful when modifying PX4 source code or creating and testing new configurations.
 
 ---
 
 ## ✨ Features
 
-* PX4 Autopilot SITL con drone `x500_depth`
-* Mondo custom `leonardo_race_field`
-* Interfaccia ROS 2 `px4_msgs`
-* `ros_gz_bridge` compilato per Gazebo Harmonic
-* Camera IMX214 bridged in ROS 2
-* GStreamer e streaming UDP per QGroundControl
-* Ambiente completamente Dockerizzato
+* PX4 Autopilot SITL with the `x500_depth` drone model
+* Custom `leonardo_race_field` simulation world
+* PX4–ROS 2 communication through `px4_msgs`
+* `ros_gz_bridge` built for Gazebo Harmonic
+* IMX214 camera bridged to ROS 2
+* GStreamer and UDP video streaming for QGroundControl
+* Fully Dockerized development and simulation environment
 
 ---
 
 ## 🛠 Prerequisites
 
-* Docker installato sull'host
-* QGroundControl installato sull'host
-* Permessi Docker senza `sudo` (consigliato)
+The following components are required on the host machine:
+
+* Docker
+* QGroundControl
+* Docker permissions without `sudo` (recommended)
+
+To add the current user to the Docker group:
 
 ```bash
 sudo usermod -aG docker $USER
 ```
 
-Dopo aver aggiunto l'utente al gruppo Docker, esci e rientra nella sessione.
+After adding the user to the Docker group, log out and log back in for the changes to take effect.
 
 ---
 
 ## 📥 Installation
 
-### Build e avvio del Docker
+### Building and Starting the Docker Container
+
+Clone the repository and enter its root directory:
 
 ```bash
 cd /path/to/Maradrone_Simulation
+```
+
+Build the Docker image:
+
+```bash
 ./docker_scripts/docker_build_image.sh
+```
+
+Then start the container:
+
+```bash
 ./docker_scripts/docker_run_container.sh
 ```
 
-Il primo comando costruisce l'immagine Docker e prepara:
+The first command builds the Docker image and prepares:
 
 * ROS 2 Humble
 * Gazebo Harmonic
 * `ros_gz_bridge`
 * Micro-XRCE-DDS-Agent
-* la copia di `PX4-Autopilot`
-* il mondo e i modelli custom dentro PX4
+* The `PX4-Autopilot` source tree
+* The custom world and models inside PX4
 
-### Quando il container esiste già
+### Starting an Existing Container
 
-Se il container esiste ma è spento si puo usare il comando di run che in questa configurazione permette anche di entrare in un container già in esecuzuzione:
+If the container already exists but is stopped, the same run script can be used to start it again and enter the container:
 
 ```bash
 ./docker_scripts/docker_run_container.sh
-
 ```
+
+Because the container is not automatically removed, changes made inside it are preserved between runs.
 
 ---
 
-## 🚀 Avvio di PX4 e caricamento della mappa custom
+## 🚀 Usage
 
-Una volta dentro il container:
+### Starting PX4 and Loading the Custom World
+
+Once inside the container, navigate to the PX4 directory:
 
 ```bash
 cd /root/PX4-Autopilot
+```
+
+Start PX4 SITL with Gazebo Harmonic:
+
+```bash
 PX4_GZ_WORLD=leonardo_race_field make px4_sitl gz_x500_depth
 ```
 
-Questo comando avvia:
+This command starts:
 
 * PX4 SITL
 * Gazebo Harmonic
-* il mondo custom `leonardo_race_field`
-* il modello `x500_depth`
+* The custom `leonardo_race_field` world
+* The `x500_depth` drone model
 
 ---
 
-## 🛰 Download e avvio di QGroundControl da un terminale esterno
+### 🛰 Downloading and Starting QGroundControl
 
-Scarica QGroundControl dal sito ufficiale:
+Download QGroundControl from the official website:
 
-https://docs.qgroundcontrol.com/master/en/getting_started/download_and_install.html
+[QGroundControl Download & Install](https://docs.qgroundcontrol.com/master/en/getting_started/download_and_install.html)
 
-Se usi l'AppImage su Linux:
+On Linux, if using the AppImage:
 
 ```bash
 cd ~/Downloads
@@ -143,13 +183,13 @@ chmod +x QGroundControl.AppImage
 ./QGroundControl.AppImage
 ```
 
-Collegati alla simulazione PX4 su porta MAVLink:
+QGroundControl should connect to the PX4 simulation through MAVLink on:
 
 ```text
 14550
 ```
 
-Per il video UDP in QGC usa la porta:
+For the UDP video stream, configure QGroundControl to use:
 
 ```text
 5600
@@ -157,78 +197,161 @@ Per il video UDP in QGC usa la porta:
 
 ---
 
-## 🔌 Avvio dei bridge tra Gazebo e ROS 2
+### 🔌 Starting the Gazebo–ROS 2 Bridge
 
-Nel container:
+From inside the container, run:
 
 ```bash
 docker exec -it maradrone_container bash
-ros2 run ros_gz_bridge parameter_bridge   /world/leonardo_race_field/model/x500_depth_0/link/camera_link/sensor/IMX214/image@sensor_msgs/msg/Image[gz.msgs.Image
 ```
 
-Poi avvia `rqt_image_view` e seleziona il topic:
+Then start the Gazebo–ROS 2 bridge:
+
+```bash
+ros2 run ros_gz_bridge parameter_bridge \
+/world/leonardo_race_field/model/x500_depth_0/link/camera_link/sensor/IMX214/image@sensor_msgs/msg/Image[gz.msgs.Image
+```
+
+The IMX214 camera image is then available in ROS 2 on:
 
 ```text
 /world/leonardo_race_field/model/x500_depth_0/link/camera_link/sensor/IMX214/image
 ```
 
+You can visualize the image using `rqt_image_view`:
+
+```bash
+rqt_image_view
+```
+
+Select the camera topic above from the topic list.
+
 ---
 
-## ⚙️ Avvio del microagent e funzione
+### ⚙️ Micro-XRCE-DDS-Agent
 
-Durante la build del container vengono installati i componenti necessari per il bridge PX4/ROS 2:
+The Docker image automatically installs the components required for PX4–ROS 2 communication:
 
 * `Micro-XRCE-DDS-Agent`
 * `ros_gz_bridge`
 
-Il microagent è il componente che fa da companion tra PX4 e ROS 2:
+The **Micro-XRCE-DDS-Agent** acts as the communication bridge between PX4 and ROS 2:
 
-* PX4 usa `uxrce_dds_client`
-* il container esegue `Micro-XRCE-DDS-Agent`
-* `px4_msgs` rappresenta i messaggi PX4 su ROS 2
+```text
+PX4
+ │
+ │ uXRCE-DDS
+ ▼
+Micro-XRCE-DDS-Agent
+ │
+ │ DDS
+ ▼
+ROS 2
+```
 
-In questo progetto, il microagent è già predisposto e non richiede un avvio manuale separato.
+More specifically:
+
+* PX4 runs the `uxrce_dds_client`.
+* The container provides the `Micro-XRCE-DDS-Agent`.
+* `px4_msgs` exposes PX4 message definitions to ROS 2.
+
+In this project, the Micro-XRCE-DDS-Agent is already configured as part of the environment and does **not require a separate manual startup**.
 
 ---
 
-## 🧩 Avvio dei nodi custom e dipendenze
+### 🧩 Building and Running Custom ROS 2 Nodes
 
-Nel container, costruisci il workspace ROS 2:
+Inside the container, build the ROS 2 workspace:
 
 ```bash
 cd /root/ros2_ws
 colcon build --packages-select px4_msgs maradrone_framework offboard_rl force_land read_rpy
+```
+
+Then source the workspace:
+
+```bash
 source install/setup.bash
 ```
 
-### Nodi custom inclusi
+### Custom Nodes
 
-* `maradrone_framework`
-  * eseguibile: `offboard_takeoff`
-  * invia:
-    * `/fmu/in/offboard_control_mode`
-    * `/fmu/in/trajectory_setpoint`
-    * `/fmu/in/vehicle_command`
+#### `maradrone_framework`
 
-* `offboard_rl`
-  * eseguibile: `go_to_point`
-  * legge:
-    * `/fmu/out/vehicle_local_position`
-    * `/fmu/out/vehicle_attitude`
-  * invia:
-    * `/fmu/in/offboard_control_mode`
-    * `/fmu/in/trajectory_setpoint`
-    * `/fmu/in/vehicle_command`
+Executable:
 
-* `force_land`
-  * eseguibile: `force_land`
-  * invia il comando di atterraggio di emergenza tramite `/fmu/in/vehicle_command`
+```text
+offboard_takeoff
+```
 
-* `read_rpy`
-  * eseguibile: `read_rpy`
-  * legge l'assetto dal topic `/fmu/out/vehicle_attitude`
+Publishes:
 
-### Esempi di esecuzione
+```text
+/fmu/in/offboard_control_mode
+/fmu/in/trajectory_setpoint
+/fmu/in/vehicle_command
+```
+
+---
+
+#### `offboard_rl`
+
+Executable:
+
+```text
+go_to_point
+```
+
+Subscribes to:
+
+```text
+/fmu/out/vehicle_local_position
+/fmu/out/vehicle_attitude
+```
+
+Publishes:
+
+```text
+/fmu/in/offboard_control_mode
+/fmu/in/trajectory_setpoint
+/fmu/in/vehicle_command
+```
+
+---
+
+#### `force_land`
+
+Executable:
+
+```text
+force_land
+```
+
+Publishes an emergency landing command through:
+
+```text
+/fmu/in/vehicle_command
+```
+
+---
+
+#### `read_rpy`
+
+Executable:
+
+```text
+read_rpy
+```
+
+Reads the vehicle attitude from:
+
+```text
+/fmu/out/vehicle_attitude
+```
+
+### Running the Nodes
+
+The custom nodes can be started with:
 
 ```bash
 ros2 run maradrone_framework offboard_takeoff
@@ -237,37 +360,90 @@ ros2 run force_land force_land
 ros2 run read_rpy read_rpy
 ```
 
-> Questi nodi richiedono che `px4_msgs` sia compilato e che il bridge PX4/ROS 2 sia attivo.
+> **Note:** These nodes require `px4_msgs` to be built and the PX4–ROS 2 communication layer to be active.
 
 ---
 
-## 📘 Structure & PX4 communication
+## 📘 Architecture and PX4 Communication
 
-### Panoramica architetturale
+### System Overview
 
-1. `PX4-Autopilot` esegue la simulazione SITL.
-2. Gazebo Harmonic visualizza il drone e il mondo custom.
-3. `ros_gz_bridge` porta i sensori Gazebo su ROS 2.
-4. `px4_msgs` converte i messaggi PX4 uORB in tipi ROS 2.
-5. I nodi ROS 2 pubblicano comandi su `/fmu/in/...`.
-6. PX4 restituisce lo stato su `/fmu/out/...`.
-7. QGroundControl comunica con PX4 via MAVLink su `14550`.
+The overall communication architecture can be summarized as follows:
 
-### Messaggi chiave
+```text
+                    ┌──────────────────┐
+                    │  QGroundControl  │
+                    └────────┬─────────┘
+                             │ MAVLink
+                           UDP 14550
+                             │
+                             ▼
+┌───────────────────────────────────────────────────────────┐
+│                         PX4 SITL                          │
+│                                                           │
+│  PX4-Autopilot                                            │
+│  ├── uORB                                                 │
+│  └── uxrce_dds_client                                     │
+└───────────────┬───────────────────────────┬───────────────┘
+                │                           │
+                │ uXRCE-DDS                 │ Gazebo
+                ▼                           ▼
+┌─────────────────────────┐      ┌─────────────────────────┐
+│ Micro-XRCE-DDS-Agent    │      │    Gazebo Harmonic      │
+└────────────┬────────────┘      │  leonardo_race_field    │
+             │ DDS              │  x500_depth              │
+             ▼                  │  IMX214 camera           │
+┌─────────────────────────┐      └────────────┬────────────┘
+│          ROS 2          │                   │
+│                         │◄──────────────────┘
+│ px4_msgs                │      ros_gz_bridge
+│ Custom ROS 2 nodes      │
+└─────────────────────────┘
+```
 
-* `/fmu/in/offboard_control_mode`
-* `/fmu/in/trajectory_setpoint`
-* `/fmu/in/vehicle_command`
-* `/fmu/out/vehicle_local_position`
-* `/fmu/out/vehicle_attitude`
+### Communication Flow
 
-### Differenza rispetto ad un sistema ROS 2 puro
+1. **PX4-Autopilot** runs the SITL flight-control stack.
+2. **Gazebo Harmonic** simulates the drone and the custom environment.
+3. **`ros_gz_bridge`** exposes Gazebo sensor data to ROS 2.
+4. **`px4_msgs`** provides ROS 2 message definitions corresponding to PX4 uORB messages.
+5. Custom ROS 2 nodes publish commands to `/fmu/in/...`.
+6. PX4 publishes vehicle state through `/fmu/out/...`.
+7. **QGroundControl** communicates with PX4 through MAVLink on UDP port `14550`.
+8. Camera data can be streamed through UDP port `5600` for QGroundControl.
 
-Questa repository non è una semplice simulazione ROS 2: è un sistema ibrido PX4 + ROS 2.
+### Key PX4 Topics
 
-* `px4_msgs` è l'interfaccia che rende i messaggi PX4 disponibili su ROS 2.
-* I nodi custom inviano comandi direttamente a PX4 tramite topic `/fmu/in/...`.
-* Il firmware PX4 rimane il componente di controllo centrale.
+#### Commands sent to PX4
+
+```text
+/fmu/in/offboard_control_mode
+/fmu/in/trajectory_setpoint
+/fmu/in/vehicle_command
+```
+
+#### State received from PX4
+
+```text
+/fmu/out/vehicle_local_position
+/fmu/out/vehicle_attitude
+```
+
+---
+
+## 🔄 PX4 + ROS 2 vs. Pure ROS 2
+
+This repository is **not a pure ROS 2 simulation**. It is a hybrid PX4 + ROS 2 system.
+
+The main distinction is that PX4 remains the central flight-control component:
+
+* `px4_msgs` provides the interface between PX4 messages and ROS 2.
+* Custom ROS 2 nodes send commands directly to PX4 through `/fmu/in/...`.
+* PX4 remains responsible for the vehicle's core flight-control logic.
+* Gazebo provides the simulated environment and sensor data.
+* ROS 2 is used for high-level control, perception, and custom application logic.
+
+This architecture is therefore fundamentally different from the ROS 2-only approach used by `Armando-Simulation` and `Fra2mo-Simulation`.
 
 ---
 
@@ -293,9 +469,11 @@ Maradrone_Simulation/
 
 ---
 
-## 💡 Note finali
+## 💡 Final Notes
 
-* Questa repo utilizza metodologie funzionali diverse rispetto a `Armando-Simulation` e `Fra2mo-Simulation`.
-* Il Dockerfile prepara il codice PX4 e copia la mappa custom all'interno di `/root/PX4-Autopilot`.
-* Il container conserva lo stato tra le uscite, così le modifiche non vanno perse.
-* I pacchetti `maradrone_framework`, `offboard_rl`, `force_land` e `read_rpy` dipendono da `px4_msgs` e dal bridge PX4/ROS 2.
+* This repository follows a different development methodology and architecture compared to `Armando-Simulation` and `Fra2mo-Simulation`.
+* The Dockerfile prepares the PX4 source tree and copies the custom simulation world into `/root/PX4-Autopilot`.
+* Custom Gazebo models are installed under `/root/PX4-Autopilot/Tools/simulation/gz/models/`.
+* The Docker container is persistent and is not removed when stopped, allowing modifications to be preserved.
+* The `maradrone_framework`, `offboard_rl`, `force_land`, and `read_rpy` packages depend on `px4_msgs` and the PX4–ROS 2 communication layer.
+* PX4 remains the central flight-control component, while ROS 2 provides the interface for custom control and application-level logic.
