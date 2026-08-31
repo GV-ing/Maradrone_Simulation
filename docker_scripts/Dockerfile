@@ -60,6 +60,7 @@ RUN apt-get update && apt-get install -y \
     ros-humble-xacro ros-humble-usb-cam ros-humble-image-pipeline \
     ros-humble-tf-transformations ros-humble-navigation2 ros-humble-nav2-bringup \
     ros-humble-robot-localization ros-humble-rqt-image-view \
+    ros-humble-rtabmap-ros \
     libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-bad gstreamer1.0-plugins-good \
  && rm -rf /var/lib/apt/lists/*
 # ==========================================

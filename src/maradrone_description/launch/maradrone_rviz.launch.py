@@ -44,6 +44,6 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
-        #robot_state_publisher_node,
+        robot_state_publisher_node,
         rviz_node
     ])

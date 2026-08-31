@@ -2,7 +2,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <px4_msgs/msg/vehicle_attitude.hpp>
 #include <geometry_msgs/msg/vector3.hpp>
-#include <read_RPY/utils.h>
+#include <maradrone_utils/attitude_utils.h>
 
 using namespace std::chrono_literals;
 
@@ -30,7 +30,7 @@ class ReadRPY : public rclcpp::Node
 	void attitude_callback(const px4_msgs::msg::VehicleAttitude::UniquePtr msg) 
 	{
 		auto q = msg->q;
-		auto rpy = utilities::quatToRpy( Vector4d( q[0], q[1], q[2], q[3] ) );
+		auto rpy = maradrone_utils::quatToRpy( Eigen::Vector4d( q[0], q[1], q[2], q[3] ) );
 
 		geometry_msgs::msg::Vector3 rpy_msg;
 		rpy_msg.x = rpy(0);

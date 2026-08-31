@@ -10,6 +10,9 @@ class ForceLand : public rclcpp::Node
 	public:
 	ForceLand() : Node("force_land"), need_land(false)
 	{
+		this->declare_parameter<double>("max_altitude", 20.0);
+		max_altitude_ = this->get_parameter("max_altitude").as_double();
+
 		rmw_qos_profile_t qos_profile = rmw_qos_profile_sensor_data;
 		auto qos = rclcpp::QoS(rclcpp::QoSInitialization(qos_profile.history, 5), qos_profile);
 
@@ -27,12 +30,13 @@ class ForceLand : public rclcpp::Node
 	rclcpp::TimerBase::SharedPtr timer_;
 
 	bool need_land;
+	double max_altitude_ = 20.0;
 
-	void height_callback(const px4_msgs::msg::VehicleLocalPosition::UniquePtr msg) 
+	void height_callback(const px4_msgs::msg::VehicleLocalPosition::UniquePtr msg)
 	{
 		float z_ = -msg->z;
 		std::cout << "Current drone height: " << z_ << " meters" <<  std::endl;
-		if(z_ > 20)
+		if(z_ > max_altitude_)
 		{
 			need_land = true;
 		}
@@ -44,7 +48,7 @@ class ForceLand : public rclcpp::Node
 	{
 		if(need_land)
 		{
-			std::cout << "Drone height exceeded 20 meters threshold, Landing forced" << std::endl;
+			std::cout << "Drone height exceeded " << max_altitude_ << " meters threshold, Landing forced" << std::endl;
 			auto command = px4_msgs::msg::VehicleCommand();
 			command.command = px4_msgs::msg::VehicleCommand::VEHICLE_CMD_NAV_LAND;
 			this->publisher_->publish(command);
