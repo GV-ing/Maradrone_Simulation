@@ -6,6 +6,7 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(px4_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
+find_package(maradrone_utils REQUIRED)
 
 # 2. Eseguibile
 add_executable(offboard_takeoff src/offboard_takeoff.cpp)
@@ -18,6 +19,7 @@ ament_target_dependencies(offboard_takeoff
   rclcpp
   px4_msgs
   geometry_msgs
+  maradrone_utils
 )
 
 # 3. Installazione

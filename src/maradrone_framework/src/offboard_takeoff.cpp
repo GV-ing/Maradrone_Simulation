@@ -2,6 +2,7 @@
 #include <px4_msgs/msg/trajectory_setpoint.hpp>
 #include <px4_msgs/msg/vehicle_command.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <maradrone_utils/px4_topics.h>
 #include <chrono>
 
 using namespace std::chrono_literals;
@@ -12,10 +13,14 @@ public:
         this->declare_parameter<double>("takeoff_altitude", 5.0);
         takeoff_altitude_ = this->get_parameter("takeoff_altitude").as_double();
 
-        // Publisher
+        // Publisher (OffboardControlMode is never versioned by PX4, so its
+        // topic name stays a plain literal; TrajectorySetpoint/VehicleCommand
+        // are, so their topic is built from MESSAGE_VERSION).
         offboard_control_mode_pub_ = this->create_publisher<px4_msgs::msg::OffboardControlMode>("/fmu/in/offboard_control_mode", 10);
-        trajectory_setpoint_pub_ = this->create_publisher<px4_msgs::msg::TrajectorySetpoint>("/fmu/in/trajectory_setpoint", 10);
-        vehicle_command_pub_ = this->create_publisher<px4_msgs::msg::VehicleCommand>("/fmu/in/vehicle_command", 10);
+        trajectory_setpoint_pub_ = this->create_publisher<px4_msgs::msg::TrajectorySetpoint>(
+            maradrone_utils::px4_topic<px4_msgs::msg::TrajectorySetpoint>("/fmu/in/trajectory_setpoint"), 10);
+        vehicle_command_pub_ = this->create_publisher<px4_msgs::msg::VehicleCommand>(
+            maradrone_utils::px4_topic<px4_msgs::msg::VehicleCommand>("/fmu/in/vehicle_command"), 10);
 
         auto timer_callback = [this]() -> void {
             if (offboard_setpoint_counter_ == 10) {

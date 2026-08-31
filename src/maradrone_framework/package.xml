@@ -2,14 +2,15 @@
 <package format="3">
   <name>maradrone_framework</name>
   <version>0.0.1</version>
-  <description>Framework C++ per Maradrone</description>
-  <maintainer email="root@todo.todo">root</maintainer>
+  <description>Framework C++ per Maradrone: offboard_takeoff arms the vehicle and climbs to a configurable takeoff altitude.</description>
+  <maintainer email="g.vestri2904@gmail.com">Giulio Vestri</maintainer>
   <license>Apache License 2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
   <depend>rclcpp</depend>
   <depend>px4_msgs</depend>
   <depend>geometry_msgs</depend>
+  <depend>maradrone_utils</depend>
 
   <export>
     <build_type>ament_cmake</build_type>
