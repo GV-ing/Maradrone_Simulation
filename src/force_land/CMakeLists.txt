@@ -21,14 +21,13 @@ find_package(px4_msgs REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(Boost REQUIRED COMPONENTS system filesystem thread)
 find_package(std_msgs REQUIRED)
+find_package(maradrone_utils REQUIRED)
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
 
-include_directories(include)
-
 add_executable(force_land src/force_land_node.cpp)
-ament_target_dependencies(force_land rclcpp px4_msgs Boost)
+ament_target_dependencies(force_land rclcpp px4_msgs Boost maradrone_utils)
 install(TARGETS 
   force_land 
   DESTINATION lib/${PROJECT_NAME})

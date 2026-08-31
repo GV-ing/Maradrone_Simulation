@@ -12,6 +12,8 @@ A fully Dockerized simulation environment for **Maradrone**, integrating:
 * **Gazebo Harmonic**
 * **QGroundControl**
 * A custom `leonardo_race_field` simulation world
+* **RTAB-Map RGB-D SLAM**
+* A configurable multi-waypoint mission executor
 
 ---
 
@@ -30,6 +32,10 @@ A fully Dockerized simulation environment for **Maradrone**, integrating:
   * [Starting the Gazebo–ROS 2 Bridge](#starting-the-gazebo-ros-2-bridge)
   * [Micro-XRCE-DDS-Agent](#micro-xrce-dds-agent)
   * [Building and Running Custom ROS 2 Nodes](#building-and-running-custom-ros-2-nodes)
+  * [Node Parameters](#node-parameters)
+  * [Waypoint Mission](#waypoint-mission)
+  * [SLAM (RTAB-Map RGB-D)](#slam-rtab-map-rgb-d)
+  * [Visualizing the Robot in RViz](#visualizing-the-robot-in-rviz)
 * [Architecture and PX4 Communication](#-architecture-and-px4-communication)
 * [Repository Structure](#-repository-structure)
 * [Final Notes](#-final-notes)
@@ -40,7 +46,7 @@ A fully Dockerized simulation environment for **Maradrone**, integrating:
 
 **Maradrone Simulation** provides a Dockerized environment for running a PX4-based drone simulation integrated with ROS 2 and Gazebo.
 
-The project combines the PX4 flight stack with custom ROS 2 nodes, Gazebo sensors, QGroundControl, and a custom simulation environment.
+The project combines the PX4 flight stack with custom ROS 2 nodes, Gazebo sensors, QGroundControl, RGB-D SLAM, and a custom simulation environment.
 
 Unlike the other repositories developed for the `Armando-Simulation` and `Fra2mo-Simulation` educational framework, this project uses **PX4 Autopilot SITL as the central flight-control component**.
 
@@ -73,12 +79,16 @@ When the shell is exited, the container is stopped but **not removed**. This mak
 
 ## ✨ Features
 
-* PX4 Autopilot SITL with the `x500_depth` drone model
+* PX4 Autopilot SITL with the `x500` and `x500_depth` drone models
 * Custom `leonardo_race_field` simulation world
 * PX4–ROS 2 communication through `px4_msgs`
 * `ros_gz_bridge` built for Gazebo Harmonic
 * IMX214 camera bridged to ROS 2
 * GStreamer and UDP video streaming for QGroundControl
+* `maradrone_utils`: shared attitude-conversion and quintic-trajectory utilities, reused across all custom nodes
+* Configurable ROS 2 parameters for takeoff altitude, forced-landing altitude threshold, and trajectory publish rate
+* `maradrone_mission`: configurable multi-waypoint mission executor
+* `maradrone_slam`: RGB-D SLAM with RTAB-Map, built on the `x500_depth` depth camera
 * Fully Dockerized development and simulation environment
 
 ---
@@ -131,6 +141,9 @@ The first command builds the Docker image and prepares:
 * Micro-XRCE-DDS-Agent
 * The `PX4-Autopilot` source tree
 * The custom world and models inside PX4
+* `rtabmap_ros` (RGB-D SLAM), `navigation2`, and `robot_localization`
+
+> **Note:** If you built the image before this SLAM feature was added, rebuild it (`./docker_scripts/docker_build_image.sh`) to pick up `ros-humble-rtabmap-ros`.
 
 ### Starting an Existing Container
 
@@ -226,6 +239,8 @@ rqt_image_view
 
 Select the camera topic above from the topic list.
 
+> For RGB-D **SLAM** (RGB + depth + camera_info, remapped to clean topic names, plus `/clock`), use the `maradrone_slam` package instead of this manual bridge command — see [SLAM (RTAB-Map RGB-D)](#slam-rtab-map-rgb-d) below.
+
 ---
 
 ### ⚙️ Micro-XRCE-DDS-Agent
@@ -261,11 +276,11 @@ In this project, the Micro-XRCE-DDS-Agent is already configured as part of the e
 
 ### 🧩 Building and Running Custom ROS 2 Nodes
 
-Inside the container, build the ROS 2 workspace:
+Inside the container, build the ROS 2 workspace. `maradrone_utils` is a header-only dependency of several other packages, so it (or `--packages-up-to`) should be built first:
 
 ```bash
 cd /root/ros2_ws
-colcon build --packages-select px4_msgs maradrone_framework offboard_rl force_land read_rpy
+colcon build --packages-select px4_msgs maradrone_utils maradrone_framework offboard_rl force_land read_rpy maradrone_mission maradrone_slam
 ```
 
 Then source the workspace:
@@ -274,7 +289,14 @@ Then source the workspace:
 source install/setup.bash
 ```
 
-### Custom Nodes
+### Custom Packages and Nodes
+
+#### `maradrone_utils`
+
+Header-only library, not an executable. Provides:
+
+* `maradrone_utils/attitude_utils.h`: quaternion → roll/pitch/yaw conversion (`quatToRpy`) and shortest-path angle error (`angleError`).
+* `maradrone_utils/quintic_trajectory.h`: the `QuinticTrajectory` class used by `go_to_point` and `waypoint_mission` to generate a smooth position/velocity/acceleration profile (zero velocity/acceleration at both endpoints) between two 4D (x, y, z, yaw) setpoints.
 
 #### `maradrone_framework`
 
@@ -291,6 +313,8 @@ Publishes:
 /fmu/in/trajectory_setpoint
 /fmu/in/vehicle_command
 ```
+
+Arms the vehicle and climbs to a configurable takeoff altitude (see [Node Parameters](#node-parameters)).
 
 ---
 
@@ -317,6 +341,8 @@ Publishes:
 /fmu/in/vehicle_command
 ```
 
+Reads a single `x y z yaw T` setpoint from the terminal (meters, meters, meters, radians, seconds) and flies to it along a quintic trajectory generated by `maradrone_utils::QuinticTrajectory`.
+
 ---
 
 #### `force_land`
@@ -332,6 +358,8 @@ Publishes an emergency landing command through:
 ```text
 /fmu/in/vehicle_command
 ```
+
+Forces `VEHICLE_CMD_NAV_LAND` when the vehicle exceeds a configurable altitude threshold (see [Node Parameters](#node-parameters)).
 
 ---
 
@@ -349,6 +377,26 @@ Reads the vehicle attitude from:
 /fmu/out/vehicle_attitude
 ```
 
+Publishes roll/pitch/yaw (`geometry_msgs/Vector3`) on `/out/rpy_info`.
+
+---
+
+#### `maradrone_mission`
+
+Executable:
+
+```text
+waypoint_mission
+```
+
+Flies a configurable sequence of waypoints in PX4 offboard mode, one quintic trajectory leg at a time. See [Waypoint Mission](#waypoint-mission).
+
+---
+
+#### `maradrone_slam`
+
+Launch-only package (no executables): bridges the `x500_depth` RGB-D camera into ROS 2 and runs RTAB-Map RGB-D SLAM. See [SLAM (RTAB-Map RGB-D)](#slam-rtab-map-rgb-d).
+
 ### Running the Nodes
 
 The custom nodes can be started with:
@@ -361,6 +409,128 @@ ros2 run read_rpy read_rpy
 ```
 
 > **Note:** These nodes require `px4_msgs` to be built and the PX4–ROS 2 communication layer to be active.
+
+---
+
+### Node Parameters
+
+The nodes below expose ROS 2 parameters (with the same defaults as before) instead of hardcoded values. Any parameter can be overridden from the command line with `--ros-args -p <name>:=<value>`, or from a launch file's `parameters=[...]`.
+
+| Package | Node | Parameter | Default | Meaning |
+|---|---|---|---|---|
+| `maradrone_framework` | `offboard_takeoff` | `takeoff_altitude` | `5.0` | Altitude (m, positive up) to climb to after arming. |
+| `force_land` | `force_land` | `max_altitude` | `20.0` | Altitude (m) above which a forced `NAV_LAND` is triggered. |
+| `offboard_rl` | `go_to_point` | `trajectory_rate_hz` | `50.0` | Rate (Hz) at which trajectory setpoints are sampled and published. |
+| `maradrone_mission` | `waypoint_mission` | `trajectory_rate_hz` | `50.0` | Same as above, for the mission executor. |
+
+Examples:
+
+```bash
+ros2 run maradrone_framework offboard_takeoff --ros-args -p takeoff_altitude:=8.0
+ros2 run force_land force_land --ros-args -p max_altitude:=25.0
+ros2 run offboard_rl go_to_point --ros-args -p trajectory_rate_hz:=100.0
+```
+
+---
+
+### Waypoint Mission
+
+`maradrone_mission` flies a fixed sequence of waypoints in PX4 offboard mode, reusing the same quintic-trajectory generator as `go_to_point`. Each waypoint has a target `x, y, z, yaw` (z in the PX4 **NED** frame, i.e. negative = above ground), a `duration` (seconds to fly the trajectory leg into it), and a `hold_time` (seconds to hover there before continuing).
+
+Waypoints are declared as ROS 2 parameters in a YAML file, `src/maradrone_mission/config/waypoints.yaml`:
+
+```yaml
+waypoint_mission:
+  ros__parameters:
+    trajectory_rate_hz: 50.0
+    waypoints:
+      x:         [0.0, 5.0, 5.0, 0.0, 0.0]
+      y:         [0.0, 0.0, 5.0, 5.0, 0.0]
+      z:         [-5.0, -5.0, -5.0, -5.0, -5.0]
+      yaw:       [0.0, 1.5708, 3.1416, -1.5708, 0.0]
+      duration:  [8.0, 6.0, 6.0, 6.0, 6.0]
+      hold_time: [2.0, 2.0, 2.0, 2.0, 2.0]
+```
+
+All six `waypoints.*` arrays must have the same length. Edit this file (or copy it and pass your own path) to define a different mission.
+
+With PX4 SITL + Gazebo already running (see [Starting PX4 and Loading the Custom World](#starting-px4-and-loading-the-custom-world), or the [ROS 2 Gazebo/PX4 launch workflow](#ros-2-gazebopx4-launch-workflow)), build and run the mission:
+
+```bash
+colcon build --packages-select maradrone_utils maradrone_mission
+source install/setup.bash
+ros2 launch maradrone_mission mission.launch.py
+```
+
+To use a different waypoint file:
+
+```bash
+ros2 launch maradrone_mission mission.launch.py waypoints_file:=/path/to/my_waypoints.yaml
+```
+
+---
+
+### SLAM (RTAB-Map RGB-D)
+
+`maradrone_slam` runs RGB-D SLAM with [RTAB-Map](http://introlab.github.io/rtabmap/) on the `x500_depth` model's IMX214 (RGB) and depth cameras, using RTAB-Map's own visual odometry (`rgbd_odometry`) — no lidar or external odometry source is required.
+
+**Prerequisites:**
+
+* The Docker image must include `ros-humble-rtabmap-ros` (rebuild the image if it predates this feature — see [Installation](#-installation)).
+* PX4 SITL + Gazebo must be running with the **`x500_depth`** model (which carries the depth camera; the plain `x500` model used elsewhere in this repo has no camera).
+
+1. Start PX4 SITL with the depth-camera model:
+
+   ```bash
+   cd /root/PX4-Autopilot
+   PX4_GZ_WORLD=leonardo_race_field make px4_sitl gz_x500_depth
+   ```
+
+2. In another terminal inside the container, build and source the workspace:
+
+   ```bash
+   cd /root/ros2_ws
+   colcon build --packages-select maradrone_slam
+   source install/setup.bash
+   ```
+
+3. Launch the camera bridge and RTAB-Map together:
+
+   ```bash
+   ros2 launch maradrone_slam slam.launch.py
+   ```
+
+   This launches, in order:
+   * `x500_depth_bridge.launch.py` — bridges `/clock`, the RGB image/camera_info, and the depth image/camera_info from Gazebo into ROS 2 (remapped to `/camera/rgb/...` and `/camera/depth/...`).
+   * `rtabmap_slam.launch.py` — first crops the 1920x1080 RGB image to a centered 1440x1080 (4:3) region with `image_proc`'s `CropDecimateNode`, to match the depth camera's 640x480 (4:3) aspect ratio (`rgbd_odometry` requires the two to share an aspect ratio, and IMX214/depth don't out of the box). Since `CropDecimateNode` only updates the CameraInfo's `roi`/`binning` fields (leaving `width`/`height` at the original sensor size, which RTAB-Map's mapping node rejects), a small companion node (`crop_camera_info.py`) republishes a CameraInfo with `width`/`height`/`K`/`P` actually corrected for the crop. Then includes `rtabmap_launch`'s `rtabmap.launch.py` with `visual_odometry:=true`, `use_sim_time:=true`, `frame_id:=camera_link`, building a live occupancy/point-cloud map and localizing the camera within it. `rtabmap_viz` opens by default for visualization.
+
+4. **Verify the depth camera topic.** The default depth image/camera_info topic names (`/depth_camera`, `/camera_info` — note the camera_info topic is unscoped, not `/depth_camera/camera_info`) were verified against real `gz topic -l` output, but can still vary with the exact `PX4-Autopilot` version cloned into the image. If RTAB-Map reports no depth data, list the actual Gazebo topics while the simulation is running:
+
+   ```bash
+   gz topic -l | grep -i camera
+   ```
+
+   and override the bridge with the real topic name, e.g.:
+
+   ```bash
+   ros2 launch maradrone_slam slam.launch.py depth_topic_gz:=/actual/depth/topic depth_camera_info_topic_gz:=/actual/depth/camera_info/topic
+   ```
+
+   You can run just the bridge on its own the same way (`ros2 launch maradrone_slam x500_depth_bridge.launch.py ...`) to inspect the remapped ROS topics (`ros2 topic hz /camera/depth/image_raw`) before starting RTAB-Map.
+
+5. To fly the drone while mapping, run `go_to_point` or `waypoint_mission` (see above) in another terminal — SLAM does not arm or control the vehicle itself.
+
+**Troubleshooting:** if `rtabmap`/`rgbd_odometry`/`rtabmap_viz` executables are not found after installing `ros-humble-rtabmap-ros`, check `apt list --installed | grep rtabmap` and try `apt-get update && apt-get upgrade` inside the container — some historical Ubuntu Jammy/Humble APT snapshots shipped incomplete `rtabmap_ros` binaries.
+
+---
+
+### Visualizing the Robot in RViz
+
+To visualize the robot description (URDF) and TF tree in RViz:
+
+```bash
+ros2 launch maradrone_description maradrone_rviz.launch.py
+```
 
 ---
 
@@ -392,12 +562,16 @@ The overall communication architecture can be summarized as follows:
 │ Micro-XRCE-DDS-Agent    │      │    Gazebo Harmonic      │
 └────────────┬────────────┘      │  leonardo_race_field    │
              │ DDS              │  x500_depth              │
-             ▼                  │  IMX214 camera           │
+             ▼                  │  IMX214 + depth camera   │
 ┌─────────────────────────┐      └────────────┬────────────┘
 │          ROS 2          │                   │
 │                         │◄──────────────────┘
 │ px4_msgs                │      ros_gz_bridge
 │ Custom ROS 2 nodes      │
+│ maradrone_utils         │
+│ maradrone_mission       │
+│ maradrone_slam          │
+│  └── RTAB-Map RGB-D SLAM│
 └─────────────────────────┘
 ```
 
@@ -407,10 +581,10 @@ The overall communication architecture can be summarized as follows:
 2. **Gazebo Harmonic** simulates the drone and the custom environment.
 3. **`ros_gz_bridge`** exposes Gazebo sensor data to ROS 2.
 4. **`px4_msgs`** provides ROS 2 message definitions corresponding to PX4 uORB messages.
-5. Custom ROS 2 nodes publish commands to `/fmu/in/...`.
+5. Custom ROS 2 nodes (`offboard_takeoff`, `go_to_point`, `waypoint_mission`) publish commands to `/fmu/in/...`.
 6. PX4 publishes vehicle state through `/fmu/out/...`.
 7. **QGroundControl** communicates with PX4 through MAVLink on UDP port `14550`.
-8. Camera data can be streamed through UDP port `5600` for QGroundControl.
+8. Camera data can be streamed through UDP port `5600` for QGroundControl, or bridged into ROS 2 for **RTAB-Map RGB-D SLAM** (`maradrone_slam`), which builds its own visual odometry from the RGB-D stream.
 
 ### Key PX4 Topics
 
@@ -441,7 +615,7 @@ The main distinction is that PX4 remains the central flight-control component:
 * Custom ROS 2 nodes send commands directly to PX4 through `/fmu/in/...`.
 * PX4 remains responsible for the vehicle's core flight-control logic.
 * Gazebo provides the simulated environment and sensor data.
-* ROS 2 is used for high-level control, perception, and custom application logic.
+* ROS 2 is used for high-level control, perception (SLAM), and custom application logic.
 
 This architecture is therefore fundamentally different from the ROS 2-only approach used by `Armando-Simulation` and `Fra2mo-Simulation`.
 
@@ -461,6 +635,12 @@ Maradrone_Simulation/
 │   │   ├── models/
 │   │   └── worlds/
 │   ├── maradrone_framework/
+│   ├── maradrone_mission/
+│   │   └── config/
+│   ├── maradrone_slam/
+│   │   └── launch/
+│   ├── maradrone_utils/
+│   │   └── include/
 │   ├── offboard_rl/
 │   ├── px4_msgs/
 │   └── read_rpy/
@@ -475,5 +655,6 @@ Maradrone_Simulation/
 * The Dockerfile prepares the PX4 source tree and copies the custom simulation world into `/root/PX4-Autopilot`.
 * Custom Gazebo models are installed under `/root/PX4-Autopilot/Tools/simulation/gz/models/`.
 * The Docker container is persistent and is not removed when stopped, allowing modifications to be preserved.
-* The `maradrone_framework`, `offboard_rl`, `force_land`, and `read_rpy` packages depend on `px4_msgs` and the PX4–ROS 2 communication layer.
-* PX4 remains the central flight-control component, while ROS 2 provides the interface for custom control and application-level logic.
+* The `maradrone_framework`, `offboard_rl`, `force_land`, `read_rpy`, and `maradrone_mission` packages depend on `px4_msgs` and the PX4–ROS 2 communication layer; `offboard_rl`, `read_rpy`, and `maradrone_mission` also depend on `maradrone_utils`.
+* `maradrone_slam` depends on `rtabmap_ros` (installed via the Dockerfile) and on the `x500_depth` model's cameras, which are only present in PX4-Autopilot's own `x500_depth` Gazebo model (not vendored in this repository).
+* PX4 remains the central flight-control component, while ROS 2 provides the interface for custom control, mission execution, perception, and application-level logic.

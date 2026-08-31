@@ -60,6 +60,7 @@ RUN apt-get update && apt-get install -y \
     ros-humble-xacro ros-humble-usb-cam ros-humble-image-pipeline \
     ros-humble-tf-transformations ros-humble-navigation2 ros-humble-nav2-bringup \
     ros-humble-robot-localization ros-humble-rqt-image-view \
+    ros-humble-rtabmap-ros \
     libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev gstreamer1.0-plugins-bad gstreamer1.0-plugins-good \
  && rm -rf /var/lib/apt/lists/*
 # ==========================================
@@ -80,9 +81,17 @@ RUN echo "source /root/ros2_ws/install/setup.bash" >> /root/.bashrc
 
 RUN git config --global --add safe.directory '*'
 
-# Clone di PX4 isolato dal workspace ROS 2
+# Clone di PX4 isolato dal workspace ROS 2.
+# Pinnato allo stesso commit da cui è stato generato il sottomodulo
+# src/px4_msgs (vedi il commit "Update to PX4 <sha>" di PX4BuildBot in quel
+# repo), cosi' i nomi dei topic uXRCE-DDS versionati (es. vehicle_local_position_v1,
+# vehicle_status_v4) restano stabili invece di cambiare ad ogni rebuild
+# dell'immagine seguendo l'evolversi di PX4-Autopilot main.
+ARG PX4_COMMIT=3f9c6ec2c3f93d233b1a54a8d59ef055c7675b4c
 WORKDIR /root
-RUN git clone https://github.com/PX4/PX4-Autopilot.git --recursive /root/PX4-Autopilot
+RUN git clone https://github.com/PX4/PX4-Autopilot.git /root/PX4-Autopilot \
+ && git -C /root/PX4-Autopilot checkout ${PX4_COMMIT} \
+ && git -C /root/PX4-Autopilot submodule update --init --recursive
 
 # --- INIZIO COPIA MAPPA E MODELLI ---
 COPY src/maradrone_description/worlds/leonardo_race_field.sdf /root/PX4-Autopilot/Tools/simulation/gz/worlds/

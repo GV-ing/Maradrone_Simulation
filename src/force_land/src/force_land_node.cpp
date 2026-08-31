@@ -2,6 +2,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <px4_msgs/msg/vehicle_local_position.hpp>
 #include <px4_msgs/msg/vehicle_command.hpp>
+#include <maradrone_utils/px4_topics.h>
 
 using namespace std::chrono_literals;
 
@@ -10,12 +11,17 @@ class ForceLand : public rclcpp::Node
 	public:
 	ForceLand() : Node("force_land"), need_land(false)
 	{
+		this->declare_parameter<double>("max_altitude", 20.0);
+		max_altitude_ = this->get_parameter("max_altitude").as_double();
+
 		rmw_qos_profile_t qos_profile = rmw_qos_profile_sensor_data;
 		auto qos = rclcpp::QoS(rclcpp::QoSInitialization(qos_profile.history, 5), qos_profile);
 
-		subscription_ = this->create_subscription<px4_msgs::msg::VehicleLocalPosition>("/fmu/out/vehicle_local_position",
+		subscription_ = this->create_subscription<px4_msgs::msg::VehicleLocalPosition>(
+		maradrone_utils::px4_topic<px4_msgs::msg::VehicleLocalPosition>("/fmu/out/vehicle_local_position"),
 		qos, std::bind(&ForceLand::height_callback, this, std::placeholders::_1));
-		publisher_ = this->create_publisher<px4_msgs::msg::VehicleCommand>("/fmu/in/vehicle_command", 10);
+		publisher_ = this->create_publisher<px4_msgs::msg::VehicleCommand>(
+		maradrone_utils::px4_topic<px4_msgs::msg::VehicleCommand>("/fmu/in/vehicle_command"), 10);
 
 		timer_ = this->create_wall_timer(10ms, std::bind(&ForceLand::activate_switch, this));
 	}
@@ -27,12 +33,13 @@ class ForceLand : public rclcpp::Node
 	rclcpp::TimerBase::SharedPtr timer_;
 
 	bool need_land;
+	double max_altitude_ = 20.0;
 
-	void height_callback(const px4_msgs::msg::VehicleLocalPosition::UniquePtr msg) 
+	void height_callback(const px4_msgs::msg::VehicleLocalPosition::UniquePtr msg)
 	{
 		float z_ = -msg->z;
 		std::cout << "Current drone height: " << z_ << " meters" <<  std::endl;
-		if(z_ > 20)
+		if(z_ > max_altitude_)
 		{
 			need_land = true;
 		}
@@ -44,7 +51,7 @@ class ForceLand : public rclcpp::Node
 	{
 		if(need_land)
 		{
-			std::cout << "Drone height exceeded 20 meters threshold, Landing forced" << std::endl;
+			std::cout << "Drone height exceeded " << max_altitude_ << " meters threshold, Landing forced" << std::endl;
 			auto command = px4_msgs::msg::VehicleCommand();
 			command.command = px4_msgs::msg::VehicleCommand::VEHICLE_CMD_NAV_LAND;
 			this->publisher_->publish(command);

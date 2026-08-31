@@ -1,22 +1,16 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>read_rpy</name>
+  <name>maradrone_utils</name>
   <version>0.1.0</version>
-  <description>Converts the PX4 vehicle attitude quaternion (/fmu/out/vehicle_attitude) to roll/pitch/yaw and publishes it on /out/rpy_info.</description>
+  <description>Shared header-only utilities (attitude conversions, quintic trajectory generation) reused by maradrone_framework, offboard_rl, read_rpy and maradrone_mission.</description>
   <maintainer email="g.vestri2904@gmail.com">Giulio Vestri</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <depend>px4_msgs</depend>
-  <depend>rclcpp</depend>
-  <depend>geometry_msgs</depend>
-  <depend>std_msgs</depend>
   <depend>eigen3_cmake_module</depend>
   <depend>Eigen3</depend>
-  <depend>Boost</depend>
-  <depend>maradrone_utils</depend>
 
   <test_depend>ament_lint_auto</test_depend>
   <test_depend>ament_lint_common</test_depend>

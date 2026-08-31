@@ -1,0 +1,20 @@
+# Sample multi-waypoint mission for maradrone_mission/waypoint_mission.
+#
+# All arrays must have the same length: one entry per waypoint, in order.
+# x, y, z are in meters in the PX4 local NED frame (z negative = above ground).
+# yaw is in radians. duration is the time (s) to fly the quintic trajectory
+# leg into that waypoint. hold_time is how long (s) to hover there before
+# moving to the next waypoint.
+#
+# This default mission takes off to 5m, flies a 5x5m square, and returns to
+# the starting point.
+waypoint_mission:
+  ros__parameters:
+    trajectory_rate_hz: 50.0
+    waypoints:
+      x:         [0.0, 5.0, 5.0, 0.0, 0.0]
+      y:         [0.0, 0.0, 5.0, 5.0, 0.0]
+      z:         [-5.0, -5.0, -5.0, -5.0, -5.0]
+      yaw:       [0.0, 1.5708, 3.1416, -1.5708, 0.0]
+      duration:  [8.0, 6.0, 6.0, 6.0, 6.0]
+      hold_time: [2.0, 2.0, 2.0, 2.0, 2.0]

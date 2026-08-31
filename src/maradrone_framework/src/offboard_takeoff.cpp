@@ -2,6 +2,7 @@
 #include <px4_msgs/msg/trajectory_setpoint.hpp>
 #include <px4_msgs/msg/vehicle_command.hpp>
 #include <rclcpp/rclcpp.hpp>
+#include <maradrone_utils/px4_topics.h>
 #include <chrono>
 
 using namespace std::chrono_literals;
@@ -9,10 +10,17 @@ using namespace std::chrono_literals;
 class OffboardControl : public rclcpp::Node {
 public:
     OffboardControl() : Node("offboard_takeoff_node") {
-        // Publisher
+        this->declare_parameter<double>("takeoff_altitude", 5.0);
+        takeoff_altitude_ = this->get_parameter("takeoff_altitude").as_double();
+
+        // Publisher (OffboardControlMode is never versioned by PX4, so its
+        // topic name stays a plain literal; TrajectorySetpoint/VehicleCommand
+        // are, so their topic is built from MESSAGE_VERSION).
         offboard_control_mode_pub_ = this->create_publisher<px4_msgs::msg::OffboardControlMode>("/fmu/in/offboard_control_mode", 10);
-        trajectory_setpoint_pub_ = this->create_publisher<px4_msgs::msg::TrajectorySetpoint>("/fmu/in/trajectory_setpoint", 10);
-        vehicle_command_pub_ = this->create_publisher<px4_msgs::msg::VehicleCommand>("/fmu/in/vehicle_command", 10);
+        trajectory_setpoint_pub_ = this->create_publisher<px4_msgs::msg::TrajectorySetpoint>(
+            maradrone_utils::px4_topic<px4_msgs::msg::TrajectorySetpoint>("/fmu/in/trajectory_setpoint"), 10);
+        vehicle_command_pub_ = this->create_publisher<px4_msgs::msg::VehicleCommand>(
+            maradrone_utils::px4_topic<px4_msgs::msg::VehicleCommand>("/fmu/in/vehicle_command"), 10);
 
         auto timer_callback = [this]() -> void {
             if (offboard_setpoint_counter_ == 10) {
@@ -45,7 +53,7 @@ private:
 
     void publish_trajectory_setpoint() {
         px4_msgs::msg::TrajectorySetpoint msg{};
-        msg.position = {0.0, 0.0, -5.0}; // NED: -5m è in alto
+        msg.position = {0.0f, 0.0f, static_cast<float>(-takeoff_altitude_)}; // NED: quota negativa è in alto
         msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
         trajectory_setpoint_pub_->publish(msg);
     }
@@ -69,6 +77,7 @@ private:
     rclcpp::Publisher<px4_msgs::msg::TrajectorySetpoint>::SharedPtr trajectory_setpoint_pub_;
     rclcpp::Publisher<px4_msgs::msg::VehicleCommand>::SharedPtr vehicle_command_pub_;
     uint64_t offboard_setpoint_counter_ = 0;
+    double takeoff_altitude_ = 5.0;
 };
 
 int main(int argc, char *argv[]) {

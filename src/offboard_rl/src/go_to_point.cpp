@@ -6,7 +6,9 @@
 #include <px4_msgs/msg/offboard_control_mode.hpp>
 #include <px4_msgs/msg/vehicle_command.hpp>
 #include <px4_msgs/msg/trajectory_setpoint.hpp>
-#include <offboard_rl/utils.h>
+#include <maradrone_utils/attitude_utils.h>
+#include <maradrone_utils/quintic_trajectory.h>
+#include <maradrone_utils/px4_topics.h>
 
 using namespace std::chrono_literals;
 using namespace px4_msgs::msg;
@@ -16,19 +18,29 @@ class GoToPoint : public rclcpp::Node
 	public:
 	GoToPoint() : Node("go_to_point")
 	{
+		this->declare_parameter<double>("trajectory_rate_hz", 50.0);
+		rate_hz_ = this->get_parameter("trajectory_rate_hz").as_double();
+		dt_ = 1.0 / rate_hz_;
+
 		rmw_qos_profile_t qos_profile = rmw_qos_profile_sensor_data;
 		auto qos = rclcpp::QoS(rclcpp::QoSInitialization(qos_profile.history, 5), qos_profile);
 
-		local_position_subscription_ = this->create_subscription<px4_msgs::msg::VehicleLocalPosition>("/fmu/out/vehicle_local_position",
+		local_position_subscription_ = this->create_subscription<px4_msgs::msg::VehicleLocalPosition>(
+		maradrone_utils::px4_topic<px4_msgs::msg::VehicleLocalPosition>("/fmu/out/vehicle_local_position"),
 		qos, std::bind(&GoToPoint::vehicle_local_position_callback, this, std::placeholders::_1));
-		attitude_subscription_ = this->create_subscription<px4_msgs::msg::VehicleAttitude>("/fmu/out/vehicle_attitude",
+		attitude_subscription_ = this->create_subscription<px4_msgs::msg::VehicleAttitude>(
+		maradrone_utils::px4_topic<px4_msgs::msg::VehicleAttitude>("/fmu/out/vehicle_attitude"),
 		qos, std::bind(&GoToPoint::vehicle_attitude_callback, this, std::placeholders::_1));
 		offboard_control_mode_publisher_ = this->create_publisher<px4_msgs::msg::OffboardControlMode>("/fmu/in/offboard_control_mode", 10);
-		trajectory_setpoint_publisher_ = this->create_publisher<px4_msgs::msg::TrajectorySetpoint>("/fmu/in/trajectory_setpoint", 10);
-		vehicle_command_publisher_ = this->create_publisher<px4_msgs::msg::VehicleCommand>("/fmu/in/vehicle_command", 10);
+		trajectory_setpoint_publisher_ = this->create_publisher<px4_msgs::msg::TrajectorySetpoint>(
+		maradrone_utils::px4_topic<px4_msgs::msg::TrajectorySetpoint>("/fmu/in/trajectory_setpoint"), 10);
+		vehicle_command_publisher_ = this->create_publisher<px4_msgs::msg::VehicleCommand>(
+		maradrone_utils::px4_topic<px4_msgs::msg::VehicleCommand>("/fmu/in/vehicle_command"), 10);
 
 		timer_offboard_ = this->create_wall_timer(100ms, std::bind(&GoToPoint::activate_offboard, this));
-		timer_trajectory_publish_ = this->create_wall_timer(20ms, std::bind(&GoToPoint::publish_trajectory_setpoint, this));
+		timer_trajectory_publish_ = this->create_wall_timer(
+			std::chrono::duration<double>(dt_),
+			std::bind(&GoToPoint::publish_trajectory_setpoint, this));
 
 		keyboard_thread = std::thread(&GoToPoint::keyboard_listener, this);
 	}
@@ -48,8 +60,10 @@ class GoToPoint : public rclcpp::Node
 	bool set_point_received{false};
 	bool offboard_active{false};
 	bool trajectory_computed{false};
-	Eigen::Vector<double, 6> x; //coefficients of the trajectory polynomial
+	maradrone_utils::QuinticTrajectory trajectory_;
 
+	double rate_hz_{50.0};
+	double dt_{1.0 / 50.0};
 	double T, t{0.0};
 	Eigen::Vector4d pos_i, pos_f;
 	VehicleLocalPosition current_position_{};
@@ -124,7 +138,7 @@ class GoToPoint : public rclcpp::Node
 				pos_i(1) = current_position_.y;
 				pos_i(2) = current_position_.z;
 
-				auto rpy = utilities::quatToRpy( Vector4d( current_attitude_.q[0], current_attitude_.q[1], current_attitude_.q[2], current_attitude_.q[3] ) );
+				auto rpy = maradrone_utils::quatToRpy( Eigen::Vector4d( current_attitude_.q[0], current_attitude_.q[1], current_attitude_.q[2], current_attitude_.q[3] ) );
 				pos_i(3) = rpy[2];
 
 				offboard_active = true;
@@ -137,7 +151,7 @@ class GoToPoint : public rclcpp::Node
 			msg.attitude = false;
 			msg.body_rate = false;
 			msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
-			offboard_control_mode_publisher_->publish(msg);	
+			offboard_control_mode_publisher_->publish(msg);
 
 			if (offboard_counter < 11) offboard_counter++;
 		}
@@ -149,66 +163,21 @@ class GoToPoint : public rclcpp::Node
 			return;
 		}
 
-		// std::cout << "Publishing trajectory setpoint to x=" << pos_f(0) << ", y=" << pos_f(1) << ", z=" << pos_f(2) << ", yaw=" << pos_f(3) << std::endl;
-		// TrajectorySetpoint msg{};
-		// msg.position = {float(pos_f(0)), float(pos_f(1)), float(pos_f(2))};
-		// msg.yaw = float(pos_f(3)); // [-PI:PI]
-		// msg.timestamp = this->get_clock()->now().nanoseconds() / 1000;
-		// trajectory_setpoint_publisher_->publish(msg);
-
-		double dt = 1/50.0; // 20 ms
 		TrajectorySetpoint msg{compute_trajectory_setpoint(t)};
 		trajectory_setpoint_publisher_->publish(msg);
-		t += dt;
+		t += dt_;
 	}
 
 	TrajectorySetpoint compute_trajectory_setpoint(double t)
 	{
-		Vector4d e = pos_f - pos_i;
-		e(3) = utilities::angleError(pos_f(3), pos_i(3));
-		double s_f = e.norm();
-
 		if (!trajectory_computed)
 		{
-			Eigen::VectorXd b(6);
-			Eigen::Matrix<double, 6, 6> A;
-
-			b << 0.0, 0.0, 0.0, s_f, 0.0, 0.0;
-			A << 0, 0, 0, 0, 0, 1,
-             0, 0, 0, 0, 1, 0,
-             0, 0, 0, 1, 0, 0,
-             pow(T,5), pow(T,4), pow(T,3), pow(T,2), T, 1,
-             5*pow(T,4), 4*pow(T,3), 3*pow(T,2), 2*T, 1, 0,
-             20*pow(T,3), 12*pow(T,2), 6*T, 1, 0, 0;
-
-			x = A.inverse() * b;
+			trajectory_.reset(pos_i, pos_f, T);
 			trajectory_computed = true;
 		}
 
-		double s, s_d, s_dd;
 		Eigen::Vector4d ref_traj_pos, ref_traj_vel, ref_traj_acc;
-
-		s   = x(0) * std::pow(t, 5.0)
-			+ x(1) * std::pow(t, 4.0)
-			+ x(2) * std::pow(t, 3.0)
-			+ x(3) * std::pow(t, 2.0)
-			+ x(4) * t
-			+ x(5);
-
-		s_d = 5.0  * x(0) * std::pow(t, 4.0)
-			+ 4.0  * x(1) * std::pow(t, 3.0)
-			+ 3.0  * x(2) * std::pow(t, 2.0)
-			+ 2.0  * x(3) * t
-			+        x(4);
-
-		s_dd = 20.0 * x(0) * std::pow(t, 3.0)
-			+ 12.0 * x(1) * std::pow(t, 2.0)
-			+  6.0 * x(2) * t
-			+        x(3);
-
-		ref_traj_pos = pos_i + s*e/s_f;
-    	ref_traj_vel = s_d*e/s_f;
-        ref_traj_acc = s_dd*e/s_f;
+		trajectory_.sample(t, ref_traj_pos, ref_traj_vel, ref_traj_acc);
 
 		TrajectorySetpoint msg{};
 		msg.position = {float(ref_traj_pos(0)), float(ref_traj_pos(1)), float(ref_traj_pos(2))};

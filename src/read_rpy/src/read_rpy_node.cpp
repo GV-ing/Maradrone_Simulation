@@ -2,7 +2,8 @@
 #include <rclcpp/rclcpp.hpp>
 #include <px4_msgs/msg/vehicle_attitude.hpp>
 #include <geometry_msgs/msg/vector3.hpp>
-#include <read_RPY/utils.h>
+#include <maradrone_utils/attitude_utils.h>
+#include <maradrone_utils/px4_topics.h>
 
 using namespace std::chrono_literals;
 
@@ -14,7 +15,8 @@ class ReadRPY : public rclcpp::Node
 		rmw_qos_profile_t qos_profile = rmw_qos_profile_sensor_data;
 		auto qos = rclcpp::QoS(rclcpp::QoSInitialization(qos_profile.history, 5), qos_profile);
 
-		subscription_ = this->create_subscription<px4_msgs::msg::VehicleAttitude>("/fmu/out/vehicle_attitude",
+		subscription_ = this->create_subscription<px4_msgs::msg::VehicleAttitude>(
+		maradrone_utils::px4_topic<px4_msgs::msg::VehicleAttitude>("/fmu/out/vehicle_attitude"),
 		qos, std::bind(&ReadRPY::attitude_callback, this, std::placeholders::_1));
 		publisher_ = this->create_publisher<geometry_msgs::msg::Vector3>("/out/rpy_info", 10);
 	}
@@ -30,7 +32,7 @@ class ReadRPY : public rclcpp::Node
 	void attitude_callback(const px4_msgs::msg::VehicleAttitude::UniquePtr msg) 
 	{
 		auto q = msg->q;
-		auto rpy = utilities::quatToRpy( Vector4d( q[0], q[1], q[2], q[3] ) );
+		auto rpy = maradrone_utils::quatToRpy( Eigen::Vector4d( q[0], q[1], q[2], q[3] ) );
 
 		geometry_msgs::msg::Vector3 rpy_msg;
 		rpy_msg.x = rpy(0);
