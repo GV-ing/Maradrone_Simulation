@@ -13,6 +13,8 @@
   <exec_depend>rtabmap_launch</exec_depend>
   <exec_depend>image_proc</exec_depend>
   <exec_depend>rclcpp_components</exec_depend>
+  <exec_depend>rclpy</exec_depend>
+  <exec_depend>sensor_msgs</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>
