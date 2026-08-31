@@ -9,14 +9,13 @@ from launch_ros.actions import Node
 #
 # The RGB image/camera_info topic names below match the ones already
 # documented in the README for x500_depth's IMX214 camera. The depth
-# image/camera_info topic names are a BEST-GUESS default based on the
-# StereoOV7251 depth sensor defined in PX4-gazebo-models' OakD-Lite model
-# (which declares an explicit <topic>depth_camera</topic>, overriding Gazebo's
-# scoped default naming) — the exact name can vary with the PX4-Autopilot
-# version actually cloned into the Docker image. If SLAM finds no depth data,
-# run `gz topic -l` while the simulation is running (after `make px4_sitl
-# gz_x500_depth`) and override depth_topic_gz / depth_camera_info_topic_gz
-# accordingly, e.g.:
+# image topic (/depth_camera) and its camera_info (/camera_info, unscoped —
+# not /depth_camera/camera_info) were verified against real `gz topic -l`
+# output with x500_depth spawned. These names can still vary with the
+# PX4-Autopilot version cloned into the Docker image; if SLAM finds no depth
+# data, run `gz topic -l` while the simulation is running (after `make
+# px4_sitl gz_x500_depth`) and override depth_topic_gz /
+# depth_camera_info_topic_gz accordingly, e.g.:
 #   ros2 launch maradrone_slam x500_depth_bridge.launch.py depth_topic_gz:=/actual/topic
 
 
@@ -41,11 +40,11 @@ def generate_launch_description():
     declare_depth_topic_gz = DeclareLaunchArgument(
         'depth_topic_gz',
         default_value='/depth_camera',
-        description='BEST GUESS default — verify with `gz topic -l` and override if needed.')
+        description='Verified against `gz topic -l` output with x500_depth spawned; override if your PX4-Autopilot version differs.')
     declare_depth_camera_info_topic_gz = DeclareLaunchArgument(
         'depth_camera_info_topic_gz',
-        default_value='/depth_camera/camera_info',
-        description='BEST GUESS default — verify with `gz topic -l` and override if needed.')
+        default_value='/camera_info',
+        description='Verified against `gz topic -l` output (unscoped topic, not /depth_camera/camera_info); override if your PX4-Autopilot version differs.')
 
     bridge_node = Node(
         package='ros_gz_bridge',
