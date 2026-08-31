@@ -63,12 +63,12 @@ public:
 private:
 	std::vector<Waypoint> loadWaypoints()
 	{
-		this->declare_parameter<std::vector<double>>("waypoints.x", {});
-		this->declare_parameter<std::vector<double>>("waypoints.y", {});
-		this->declare_parameter<std::vector<double>>("waypoints.z", {});
-		this->declare_parameter<std::vector<double>>("waypoints.yaw", {});
-		this->declare_parameter<std::vector<double>>("waypoints.duration", {});
-		this->declare_parameter<std::vector<double>>("waypoints.hold_time", {});
+		this->declare_parameter<std::vector<double>>("waypoints.x", std::vector<double>{});
+		this->declare_parameter<std::vector<double>>("waypoints.y", std::vector<double>{});
+		this->declare_parameter<std::vector<double>>("waypoints.z", std::vector<double>{});
+		this->declare_parameter<std::vector<double>>("waypoints.yaw", std::vector<double>{});
+		this->declare_parameter<std::vector<double>>("waypoints.duration", std::vector<double>{});
+		this->declare_parameter<std::vector<double>>("waypoints.hold_time", std::vector<double>{});
 
 		auto x = this->get_parameter("waypoints.x").as_double_array();
 		auto y = this->get_parameter("waypoints.y").as_double_array();
