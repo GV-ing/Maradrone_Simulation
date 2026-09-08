@@ -2,7 +2,7 @@ from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration, PathJoinSubstitution, PythonExpression
-from launch_ros.actions import ComposableNodeContainer
+from launch_ros.actions import ComposableNodeContainer, Node
 from launch_ros.descriptions import ComposableNode
 from launch_ros.substitutions import FindPackageShare
 
@@ -22,6 +22,15 @@ from launch_ros.substitutions import FindPackageShare
 # imageHeight/depthHeight" assertion). We crop the RGB image centrally to
 # 1440x1080 (4:3, matching the depth image's ratio) with image_proc's
 # CropDecimateNode before handing it to RTAB-Map.
+#
+# CropDecimateNode only updates the roi/binning fields of the outgoing
+# CameraInfo, leaving width/height (and K/P) equal to the original,
+# uncropped sensor — RTAB-Map's mapping node does not understand the ROI
+# convention and asserts CameraInfo.width/height == the actual image size,
+# aborting otherwise. crop_camera_info.py (this package) republishes a
+# CameraInfo with width/height/K/P actually corrected for the crop, fed
+# from the same original (uncropped) camera_info as CropDecimateNode; its
+# own roi-based camera_info output is left unused.
 #
 # Requires the ros-humble-rtabmap-ros and ros-humble-image-pipeline apt
 # packages (both already in docker_scripts/Dockerfile).
@@ -51,7 +60,9 @@ def generate_launch_description():
                     ('in/image_raw', '/camera/rgb/image_raw'),
                     ('in/camera_info', '/camera/rgb/camera_info'),
                     ('out/image_raw', '/camera/rgb/image_cropped'),
-                    ('out/camera_info', '/camera/rgb/camera_info_cropped'),
+                    # roi-based CameraInfo, not consumed by anything —
+                    # crop_camera_info_node below publishes the corrected one.
+                    ('out/camera_info', '/camera/rgb/camera_info_cropped_roi'),
                 ],
                 parameters=[{
                     'width': 1440,
@@ -65,6 +76,23 @@ def generate_launch_description():
             ),
         ],
         output='screen',
+    )
+
+    crop_camera_info_node = Node(
+        package='maradrone_slam',
+        executable='crop_camera_info.py',
+        name='crop_camera_info',
+        remappings=[
+            ('in/camera_info', '/camera/rgb/camera_info'),
+            ('out/camera_info', '/camera/rgb/camera_info_cropped'),
+        ],
+        parameters=[{
+            'offset_x': 240,
+            'offset_y': 0,
+            'width': 1440,
+            'height': 1080,
+            'use_sim_time': True,
+        }],
     )
 
     rtabmap_launch = IncludeLaunchDescription(
@@ -91,5 +119,6 @@ def generate_launch_description():
         declare_rtabmap_viz,
         declare_delete_db,
         rgb_crop_container,
+        crop_camera_info_node,
         rtabmap_launch,
     ])
