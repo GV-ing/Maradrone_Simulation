@@ -1,10 +1,7 @@
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, ExecuteProcess, IncludeLaunchDescription
-from launch.launch_description_sources import YamlLaunchDescriptionSource
+from launch.actions import DeclareLaunchArgument, ExecuteProcess
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
-from ament_index_python.packages import get_package_share_directory
-import os
 
 def generate_launch_description():
     px4_target = LaunchConfiguration('px4_target')
@@ -15,6 +12,9 @@ def generate_launch_description():
         description='PX4 SITL target. Use none to start PX4 without launching Gazebo.'
     )
 
+    # Connects to an already-running Gazebo instance (started separately via
+    # maradrone_gazebo.launch.py, which sets PX4_GZ_MODEL_NAME/PX4_GZ_WORLD and
+    # spawns the model) rather than launching its own gz_<model> target.
     px4_sitl = ExecuteProcess(
         cmd=[
             'bash',
@@ -28,18 +28,11 @@ def generate_launch_description():
         output='screen'
     )
 
-    px4_bridge = IncludeLaunchDescription(
-        YamlLaunchDescriptionSource(
-            os.path.join(
-                get_package_share_directory('px4_ros_com'),
-                'launch',
-                'offboard_control_launch.yaml'
-            )
-        )
-    )
-
+    # offboard_takeoff is self-contained (it publishes /fmu/in/... directly via
+    # px4_msgs) and lives in maradrone_framework, not in the external px4_ros_com
+    # package, so no extra bridge launch is required here.
     offboard_node = Node(
-        package='maradrone_control',
+        package='maradrone_framework',
         executable='offboard_takeoff',
         name='offboard_node',
         output='screen'
@@ -48,6 +41,5 @@ def generate_launch_description():
     return LaunchDescription([
         declare_px4_target,
         px4_sitl,
-        px4_bridge,
         offboard_node
     ])

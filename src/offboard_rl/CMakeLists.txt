@@ -24,14 +24,13 @@ find_package(std_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(eigen3_cmake_module REQUIRED)
 find_package(Eigen3)
+find_package(maradrone_utils REQUIRED)
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
 
-include_directories(include)
-
 add_executable(go_to_point src/go_to_point.cpp)
-ament_target_dependencies(go_to_point rclcpp px4_msgs Boost geometry_msgs Eigen3)
+ament_target_dependencies(go_to_point rclcpp px4_msgs Boost geometry_msgs Eigen3 maradrone_utils)
 install(TARGETS 
   go_to_point
   DESTINATION lib/${PROJECT_NAME})

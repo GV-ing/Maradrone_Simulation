@@ -1,21 +1,16 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>force_land</name>
+  <name>maradrone_slam</name>
   <version>0.1.0</version>
-  <description>Safety node that monitors the vehicle altitude (/fmu/out/vehicle_local_position) and forces a PX4 NAV_LAND command when a configurable altitude threshold is exceeded.</description>
+  <description>Launch-only package: bridges the x500_depth RGB-D camera into ROS 2 and runs RTAB-Map RGB-D SLAM on top of it.</description>
   <maintainer email="g.vestri2904@gmail.com">Giulio Vestri</maintainer>
   <license>Apache-2.0</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
 
-  <depend>px4_msgs</depend>
-  <depend>rclcpp</depend>
-  <depend>Boost</depend>
-  <depend>std_msgs</depend>
-
-  <test_depend>ament_lint_auto</test_depend>
-  <test_depend>ament_lint_common</test_depend>
+  <exec_depend>ros_gz_bridge</exec_depend>
+  <exec_depend>rtabmap_launch</exec_depend>
 
   <export>
     <build_type>ament_cmake</build_type>
