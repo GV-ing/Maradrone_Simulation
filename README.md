@@ -502,7 +502,7 @@ ros2 launch maradrone_mission mission.launch.py waypoints_file:=/path/to/my_wayp
 
    This launches, in order:
    * `x500_depth_bridge.launch.py` — bridges `/clock`, the RGB image/camera_info, and the depth image/camera_info from Gazebo into ROS 2 (remapped to `/camera/rgb/...` and `/camera/depth/...`).
-   * `rtabmap_slam.launch.py` — includes `rtabmap_launch`'s `rtabmap.launch.py` with `visual_odometry:=true`, `use_sim_time:=true`, `frame_id:=camera_link`, building a live occupancy/point-cloud map and localizing the camera within it. `rtabmap_viz` opens by default for visualization.
+   * `rtabmap_slam.launch.py` — first crops the 1920x1080 RGB image to a centered 1440x1080 (4:3) region with `image_proc`'s `CropDecimateNode`, to match the depth camera's 640x480 (4:3) aspect ratio (`rgbd_odometry` requires the two to share an aspect ratio, and IMX214/depth don't out of the box). Then includes `rtabmap_launch`'s `rtabmap.launch.py` with `visual_odometry:=true`, `use_sim_time:=true`, `frame_id:=camera_link`, building a live occupancy/point-cloud map and localizing the camera within it. `rtabmap_viz` opens by default for visualization.
 
 4. **Verify the depth camera topic.** The default depth image/camera_info topic names (`/depth_camera`, `/camera_info` — note the camera_info topic is unscoped, not `/depth_camera/camera_info`) were verified against real `gz topic -l` output, but can still vary with the exact `PX4-Autopilot` version cloned into the image. If RTAB-Map reports no depth data, list the actual Gazebo topics while the simulation is running:
 
