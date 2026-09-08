@@ -35,7 +35,7 @@ A fully Dockerized simulation environment for **Maradrone**, integrating:
   * [Node Parameters](#node-parameters)
   * [Waypoint Mission](#waypoint-mission)
   * [SLAM (RTAB-Map RGB-D)](#slam-rtab-map-rgb-d)
-  * [ROS 2 Gazebo/PX4 Launch Workflow](#ros-2-gazebopx4-launch-workflow)
+  * [Visualizing the Robot in RViz](#visualizing-the-robot-in-rviz)
 * [Architecture and PX4 Communication](#-architecture-and-px4-communication)
 * [Repository Structure](#-repository-structure)
 * [Final Notes](#-final-notes)
@@ -504,7 +504,7 @@ ros2 launch maradrone_mission mission.launch.py waypoints_file:=/path/to/my_wayp
    * `x500_depth_bridge.launch.py` — bridges `/clock`, the RGB image/camera_info, and the depth image/camera_info from Gazebo into ROS 2 (remapped to `/camera/rgb/...` and `/camera/depth/...`).
    * `rtabmap_slam.launch.py` — includes `rtabmap_launch`'s `rtabmap.launch.py` with `visual_odometry:=true`, `use_sim_time:=true`, `frame_id:=camera_link`, building a live occupancy/point-cloud map and localizing the camera within it. `rtabmap_viz` opens by default for visualization.
 
-4. **Verify the depth camera topic.** The depth image/camera_info topic names bridged by default (`/depth_camera`, `/depth_camera/camera_info`) are a best-guess based on the `x500_depth` model's depth sensor definition, and can vary with the exact `PX4-Autopilot` version cloned into the image. If RTAB-Map reports no depth data, list the actual Gazebo topics while the simulation is running:
+4. **Verify the depth camera topic.** The default depth image/camera_info topic names (`/depth_camera`, `/camera_info` — note the camera_info topic is unscoped, not `/depth_camera/camera_info`) were verified against real `gz topic -l` output, but can still vary with the exact `PX4-Autopilot` version cloned into the image. If RTAB-Map reports no depth data, list the actual Gazebo topics while the simulation is running:
 
    ```bash
    gz topic -l | grep -i camera
@@ -524,20 +524,7 @@ ros2 launch maradrone_mission mission.launch.py waypoints_file:=/path/to/my_wayp
 
 ---
 
-### ROS 2 Gazebo/PX4 Launch Workflow
-
-As an alternative to the native `make px4_sitl gz_<model>` workflow above, `maradrone_description` and `maradrone_framework` provide a ROS 2 launch-based workflow that separates spawning Gazebo from starting PX4:
-
-```bash
-# Terminal 1: start Gazebo, spawn the local x500 model, publish TF
-ros2 launch maradrone_description maradrone_gazebo.launch.py
-
-# Terminal 2: start PX4 SITL (connects to the already-running Gazebo instance)
-# and the offboard_takeoff node
-ros2 launch maradrone_framework control.launch.py
-```
-
-`maradrone_gazebo.launch.py` sets `PX4_GZ_MODEL_NAME`/`PX4_GZ_WORLD` and spawns `maradrone_description/models/x500/model.sdf` (no camera) as `maradrone`; `control.launch.py` then starts `make px4_sitl_default` against that already-running simulation and launches `offboard_takeoff`.
+### Visualizing the Robot in RViz
 
 To visualize the robot description (URDF) and TF tree in RViz:
 

@@ -26,11 +26,4 @@ ament_target_dependencies(offboard_takeoff
 install(TARGETS offboard_takeoff
   DESTINATION lib/${PROJECT_NAME})
 
-install(DIRECTORY launch
-  DESTINATION share/${PROJECT_NAME})
-
-install(DIRECTORY config
-  DESTINATION share/${PROJECT_NAME}
-)
-
 ament_package()
