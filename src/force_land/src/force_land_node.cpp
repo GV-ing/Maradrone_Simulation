@@ -2,6 +2,7 @@
 #include <rclcpp/rclcpp.hpp>
 #include <px4_msgs/msg/vehicle_local_position.hpp>
 #include <px4_msgs/msg/vehicle_command.hpp>
+#include <maradrone_utils/px4_topics.h>
 
 using namespace std::chrono_literals;
 
@@ -16,9 +17,11 @@ class ForceLand : public rclcpp::Node
 		rmw_qos_profile_t qos_profile = rmw_qos_profile_sensor_data;
 		auto qos = rclcpp::QoS(rclcpp::QoSInitialization(qos_profile.history, 5), qos_profile);
 
-		subscription_ = this->create_subscription<px4_msgs::msg::VehicleLocalPosition>("/fmu/out/vehicle_local_position",
+		subscription_ = this->create_subscription<px4_msgs::msg::VehicleLocalPosition>(
+		maradrone_utils::px4_topic<px4_msgs::msg::VehicleLocalPosition>("/fmu/out/vehicle_local_position"),
 		qos, std::bind(&ForceLand::height_callback, this, std::placeholders::_1));
-		publisher_ = this->create_publisher<px4_msgs::msg::VehicleCommand>("/fmu/in/vehicle_command", 10);
+		publisher_ = this->create_publisher<px4_msgs::msg::VehicleCommand>(
+		maradrone_utils::px4_topic<px4_msgs::msg::VehicleCommand>("/fmu/in/vehicle_command"), 10);
 
 		timer_ = this->create_wall_timer(10ms, std::bind(&ForceLand::activate_switch, this));
 	}

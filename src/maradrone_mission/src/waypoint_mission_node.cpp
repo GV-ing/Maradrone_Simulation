@@ -8,6 +8,7 @@
 #include <px4_msgs/msg/trajectory_setpoint.hpp>
 #include <maradrone_utils/attitude_utils.h>
 #include <maradrone_utils/quintic_trajectory.h>
+#include <maradrone_utils/px4_topics.h>
 
 using namespace std::chrono_literals;
 using namespace px4_msgs::msg;
@@ -45,15 +46,17 @@ public:
 		auto qos = rclcpp::QoS(rclcpp::QoSInitialization(qos_profile.history, 5), qos_profile);
 
 		local_position_subscription_ = this->create_subscription<px4_msgs::msg::VehicleLocalPosition>(
-			"/fmu/out/vehicle_local_position", qos,
+			maradrone_utils::px4_topic<px4_msgs::msg::VehicleLocalPosition>("/fmu/out/vehicle_local_position"), qos,
 			std::bind(&WaypointMission::vehicle_local_position_callback, this, std::placeholders::_1));
 		attitude_subscription_ = this->create_subscription<px4_msgs::msg::VehicleAttitude>(
-			"/fmu/out/vehicle_attitude", qos,
+			maradrone_utils::px4_topic<px4_msgs::msg::VehicleAttitude>("/fmu/out/vehicle_attitude"), qos,
 			std::bind(&WaypointMission::vehicle_attitude_callback, this, std::placeholders::_1));
 
 		offboard_control_mode_publisher_ = this->create_publisher<px4_msgs::msg::OffboardControlMode>("/fmu/in/offboard_control_mode", 10);
-		trajectory_setpoint_publisher_ = this->create_publisher<px4_msgs::msg::TrajectorySetpoint>("/fmu/in/trajectory_setpoint", 10);
-		vehicle_command_publisher_ = this->create_publisher<px4_msgs::msg::VehicleCommand>("/fmu/in/vehicle_command", 10);
+		trajectory_setpoint_publisher_ = this->create_publisher<px4_msgs::msg::TrajectorySetpoint>(
+			maradrone_utils::px4_topic<px4_msgs::msg::TrajectorySetpoint>("/fmu/in/trajectory_setpoint"), 10);
+		vehicle_command_publisher_ = this->create_publisher<px4_msgs::msg::VehicleCommand>(
+			maradrone_utils::px4_topic<px4_msgs::msg::VehicleCommand>("/fmu/in/vehicle_command"), 10);
 
 		timer_ = this->create_wall_timer(
 			std::chrono::duration<double>(dt_),
