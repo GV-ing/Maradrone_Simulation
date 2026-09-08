@@ -64,8 +64,15 @@ public:
 			+ x(3);
 
 		// Guard against a zero-length leg (pos_f == pos_i), which would
-		// otherwise divide by s_f_ == 0.
-		Eigen::Vector4d dir = (s_f_ > 1e-9) ? (e_ / s_f_) : Eigen::Vector4d::Zero();
+		// otherwise divide by s_f_ == 0. Assigning per-branch (instead of a
+		// ternary) avoids mixing Eigen's CwiseBinaryOp/CwiseNullaryOp
+		// expression-template types, which have no common type.
+		Eigen::Vector4d dir;
+		if (s_f_ > 1e-9) {
+			dir = e_ / s_f_;
+		} else {
+			dir = Eigen::Vector4d::Zero();
+		}
 
 		pos = pos_i_ + s * dir;
 		vel = s_d * dir;
